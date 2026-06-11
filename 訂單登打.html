@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>訂單登打</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f5f5f0; --surface: #fff; --surface2: #f8f8f5;
+    --border: #e2e2dc; --border2: #d0d0c8;
+    --text: #1a1a18; --text2: #6b6b64; --text3: #9b9b92;
+    --accent: #1a5fb4; --accent-light: #e8f0fc; --accent-hover: #154da0;
+    --green: #2e7d32; --green-bg: #e8f5e9;
+    --amber: #b45309; --amber-bg: #fef3e2;
+    --red: #c62828; --red-bg: #fdecea;
+    --radius: 10px; --radius-sm: 6px;
+    --shadow-lg: 0 4px 16px rgba(0,0,0,0.10);
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'PingFang TC', 'Microsoft JhengHei', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 15px; }
+
+  /* LOGIN */
+  #login-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem 1rem; }
+  .login-card { background: var(--surface); border-radius: 16px; box-shadow: var(--shadow-lg); padding: 2.5rem 2rem; width: 100%; max-width: 360px; }
+  .login-logo { text-align: center; margin-bottom: 2rem; }
+  .login-logo .icon { width: 56px; height: 56px; background: var(--accent-light); border-radius: 14px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px; }
+  .login-logo .icon svg { width: 28px; height: 28px; stroke: var(--accent); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .login-logo h1 { font-size: 20px; font-weight: 600; }
+  .login-logo p { font-size: 13px; color: var(--text2); margin-top: 4px; }
+  .field { margin-bottom: 1rem; }
+  .field label { display: block; font-size: 13px; font-weight: 500; color: var(--text2); margin-bottom: 6px; }
+  .field input { width: 100%; padding: 11px 14px; border: 1.5px solid var(--border2); border-radius: var(--radius-sm); font-size: 15px; color: var(--text); background: var(--surface); outline: none; transition: border-color 0.15s; }
+  .field input:focus { border-color: var(--accent); }
+  .login-btn { width: 100%; padding: 12px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 0.5rem; transition: background 0.15s; }
+  .login-btn:hover { background: var(--accent-hover); }
+  .login-error { background: var(--red-bg); color: var(--red); font-size: 13px; padding: 10px 12px; border-radius: var(--radius-sm); margin-top: 12px; display: none; text-align: center; }
+
+  /* APP */
+  #app { display: none; }
+  .topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 1rem; display: flex; align-items: center; justify-content: space-between; height: 56px; position: sticky; top: 0; z-index: 10; }
+  .topbar-title { font-size: 16px; font-weight: 600; }
+  .topbar-right { display: flex; gap: 8px; align-items: center; }
+  .top-btn { font-size: 13px; color: var(--text2); background: none; border: 1px solid var(--border2); padding: 5px 12px; border-radius: 99px; cursor: pointer; text-decoration: none; display: inline-block; }
+  .top-btn:hover { background: var(--surface2); }
+  .main { padding: 1rem; max-width: 680px; margin: 0 auto; }
+
+  /* TOAST */
+  .toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); padding: 12px 20px; border-radius: var(--radius); font-size: 14px; font-weight: 500; z-index: 100; display: none; white-space: nowrap; box-shadow: var(--shadow-lg); }
+  .toast.success { background: var(--green); color: #fff; }
+  .toast.error { background: var(--red); color: #fff; }
+
+  /* FORM */
+  .form-card { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); padding: 1.25rem; margin-bottom: 1rem; }
+  .form-card h3 { font-size: 12px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1rem; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-grid.single { grid-template-columns: 1fr; }
+  .form-grid.triple { grid-template-columns: 1fr 1fr 1fr; }
+  .f { display: flex; flex-direction: column; gap: 5px; }
+  .f label { font-size: 12px; color: var(--text2); font-weight: 500; }
+  .f input, .f select {
+    padding: 9px 10px; border: 1px solid var(--border2);
+    border-radius: var(--radius-sm); font-size: 14px;
+    color: var(--text); background: var(--surface); outline: none;
+    transition: border-color 0.15s; width: 100%;
+  }
+  .f input:focus, .f select:focus { border-color: var(--accent); }
+  .f .hint { font-size: 11px; color: var(--text3); }
+  .calc-display { font-size: 13px; color: var(--accent); font-weight: 600; padding: 9px 10px; background: var(--accent-light); border-radius: var(--radius-sm); }
+
+  .submit-btn { width: 100%; padding: 13px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 16px; font-weight: 600; cursor: pointer; transition: background 0.15s; margin-top: 0.5rem; }
+  .submit-btn:hover { background: var(--accent-hover); }
+  .submit-btn:active { transform: scale(0.98); }
+  .submit-btn:disabled { background: var(--border2); cursor: not-allowed; }
+
+  /* RECORDS LIST */
+  .records-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .records-header h3 { font-size: 15px; font-weight: 600; }
+  .record-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; margin-bottom: 8px; cursor: pointer; transition: border-color 0.15s; }
+  .record-card:hover { border-color: var(--accent); }
+  .record-card .rc-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .record-card .po { font-weight: 600; font-size: 15px; }
+  .record-card .amount { font-size: 14px; color: var(--accent); font-weight: 600; }
+  .record-card .rc-dates { font-size: 12px; color: var(--text2); display: flex; gap: 12px; flex-wrap: wrap; }
+  .record-card .rc-dates span { display: flex; gap: 4px; }
+  .badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 99px; }
+  .badge-done { background: var(--green-bg); color: var(--green); }
+  .badge-pending { background: var(--amber-bg); color: var(--amber); }
+  .edit-actions { display: flex; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+  .edit-btn { flex: 1; padding: 7px; font-size: 13px; border-radius: var(--radius-sm); cursor: pointer; border: 1px solid var(--border2); background: var(--surface2); color: var(--text2); }
+  .edit-btn:hover { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+  .del-btn { padding: 7px 14px; font-size: 13px; border-radius: var(--radius-sm); cursor: pointer; border: 1px solid #f5c4b3; background: var(--red-bg); color: var(--red); }
+  .del-btn:hover { background: #f7c1c1; }
+  .empty-state { text-align: center; padding: 3rem; color: var(--text3); font-size: 14px; }
+
+  @media (max-width: 500px) {
+    .form-grid { grid-template-columns: 1fr; }
+    .form-grid.triple { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="icon"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></div>
+      <h1>訂單登打系統</h1>
+      <p>SCC 訂單管控</p>
+    </div>
+    <div class="field"><label>帳號</label><input type="text" id="username" placeholder="請輸入帳號"></div>
+    <div class="field"><label>密碼</label><input type="password" id="password" placeholder="請輸入密碼"></div>
+    <button class="login-btn" onclick="doLogin()">登入</button>
+    <div class="login-error" id="login-error">帳號或密碼錯誤</div>
+  </div>
+</div>
+
+<div id="app">
+  <div class="topbar">
+    <span class="topbar-title">✏️ 訂單登打</span>
+    <div class="topbar-right">
+      <a href="訂單管控查詢.html" class="top-btn">📊 查詢</a>
+      <button class="top-btn" onclick="doLogout()">登出</button>
+    </div>
+  </div>
+  <div class="main">
+
+    <!-- FORM -->
+    <div class="form-card">
+      <h3 id="form-title">新增訂單</h3>
+      <input type="hidden" id="edit-id">
+
+      <div class="form-grid" style="margin-bottom:12px">
+        <div class="f"><label>PO 號 *</label><input type="text" id="po_number" placeholder="例：1442437OP"></div>
+        <div class="f"><label>金額 (USD) *</label><input type="number" id="amount_usd" placeholder="0.00" step="0.01" oninput="calcCommission()"></div>
+      </div>
+
+      <div class="form-card" style="background:var(--surface2); border:1px solid var(--border); margin-bottom:12px">
+        <h3>流程日期</h3>
+        <div class="form-grid">
+          <div class="f"><label>ETC Invoice 日期</label><input type="date" id="etc_invoice_date"></div>
+          <div class="f"><label>深南 ETD</label><input type="date" id="etd"></div>
+          <div class="f"><label>ETA / 進口清關完成</label><input type="date" id="eta"></div>
+          <div class="f"><label>客戶收貨簽收單</label><input type="date" id="customer_signed_date"></div>
+          <div class="f"><label>列當月應收對帳單</label><input type="date" id="monthly_statement_date"></div>
+          <div class="f"><label>轉進貨單</label><input type="date" id="transfer_receipt_date"></div>
+          <div class="f"><label>入庫</label><input type="date" id="warehouse_in_date"></div>
+          <div class="f"><label>扣帳</label><input type="date" id="deduction_date"></div>
+          <div class="f"><label>貨代清關費用日期</label><input type="date" id="customs_agent_date"></div>
+        </div>
+      </div>
+
+      <div class="form-card" style="background:var(--surface2); border:1px solid var(--border); margin-bottom:12px">
+        <h3>費用明細</h3>
+        <div class="form-grid triple">
+          <div class="f"><label>報關費 (NTD)</label><input type="number" id="customs_fee" placeholder="0" oninput="calcCommission()"></div>
+          <div class="f"><label>推貿費 (NTD)</label><input type="number" id="trade_promotion_fee" placeholder="0" oninput="calcCommission()"></div>
+          <div class="f"><label>進口費合計</label><div class="calc-display" id="import-total">NT$ 0</div></div>
+        </div>
+      </div>
+
+      <div class="form-card" style="background:var(--surface2); border:1px solid var(--border); margin-bottom:12px">
+        <h3>帳款日期</h3>
+        <div class="form-grid">
+          <div class="f"><label>KTS 貨款入帳日</label><input type="date" id="kts_payment_date"></div>
+          <div class="f"><label>TL 支付深南日期</label><input type="date" id="tl_payment_date"></div>
+        </div>
+      </div>
+
+      <div class="form-grid" style="margin-bottom:12px">
+        <div class="f"><label>3% 佣金（自動計算）</label><div class="calc-display" id="commission-display">NT$ 0</div><div class="hint">金額 USD × 30 × 3%</div></div>
+      </div>
+
+      <div style="display:flex; gap:8px;">
+        <button class="submit-btn" id="submit-btn" onclick="submitOrder()">儲存訂單</button>
+        <button class="submit-btn" id="cancel-btn" onclick="cancelEdit()" style="display:none; background:var(--surface2); color:var(--text2); border:1px solid var(--border2);">取消</button>
+      </div>
+    </div>
+
+    <!-- LIST -->
+    <div>
+      <div class="records-header">
+        <h3>最近訂單</h3>
+        <button class="top-btn" onclick="loadRecords()">重新整理</button>
+      </div>
+      <div id="records-list"><div class="empty-state">載入中…</div></div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://ppmytkolaqxtqcmztxxr.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBwbXl0a29sYXF4dHFjbXp0eHhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1MjA5OTAsImV4cCI6MjA5NTA5Njk5MH0.ERyqOCEBsD2rg6i49a7m5IHbxxQ1z7JvAQWqUfOYcto';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const USERS = {
+  'Tl3167': 'tl888$$$',
+  'entry': 'entry123'
+};
+
+function doLogin() {
+  const u = document.getElementById('username').value.trim();
+  const p = document.getElementById('password').value;
+  if (USERS[u] && USERS[u] === p) {
+    sessionStorage.setItem('logged_entry', u);
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    loadRecords();
+  } else {
+    document.getElementById('login-error').style.display = 'block';
+  }
+}
+document.getElementById('password').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+document.getElementById('username').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('password').focus(); });
+if (sessionStorage.getItem('logged_entry')) {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  loadRecords();
+}
+function doLogout() { sessionStorage.removeItem('logged_entry'); location.reload(); }
+
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast ' + type; t.style.display = 'block';
+  setTimeout(() => { t.style.display = 'none'; }, 3000);
+}
+
+function calcCommission() {
+  const usd = parseFloat(document.getElementById('amount_usd').value) || 0;
+  const customs = parseInt(document.getElementById('customs_fee').value) || 0;
+  const trade = parseInt(document.getElementById('trade_promotion_fee').value) || 0;
+  const commission = usd * 30 * 0.03;
+  document.getElementById('commission-display').textContent = 'NT$ ' + Math.round(commission).toLocaleString();
+  document.getElementById('import-total').textContent = 'NT$ ' + (customs + trade).toLocaleString();
+}
+
+function getFormData() {
+  const v = id => { const el = document.getElementById(id); return el ? el.value : ''; };
+  return {
+    po_number: v('po_number').trim(),
+    amount_usd: parseFloat(v('amount_usd')) || null,
+    etc_invoice_date: v('etc_invoice_date') || null,
+    etd: v('etd') || null,
+    eta: v('eta') || null,
+    customer_signed_date: v('customer_signed_date') || null,
+    monthly_statement_date: v('monthly_statement_date') || null,
+    transfer_receipt_date: v('transfer_receipt_date') || null,
+    warehouse_in_date: v('warehouse_in_date') || null,
+    deduction_date: v('deduction_date') || null,
+    customs_agent_date: v('customs_agent_date') || null,
+    customs_fee: parseInt(v('customs_fee')) || 0,
+    trade_promotion_fee: parseInt(v('trade_promotion_fee')) || 0,
+    kts_payment_date: v('kts_payment_date') || null,
+    tl_payment_date: v('tl_payment_date') || null,
+  };
+}
+
+function clearForm() {
+  ['po_number','amount_usd','etc_invoice_date','etd','eta','customer_signed_date',
+   'monthly_statement_date','transfer_receipt_date','warehouse_in_date','deduction_date',
+   'customs_agent_date','customs_fee','trade_promotion_fee','kts_payment_date','tl_payment_date']
+  .forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+  document.getElementById('edit-id').value = '';
+  document.getElementById('form-title').textContent = '新增訂單';
+  document.getElementById('submit-btn').textContent = '儲存訂單';
+  document.getElementById('cancel-btn').style.display = 'none';
+  calcCommission();
+}
+
+function cancelEdit() { clearForm(); }
+
+async function submitOrder() {
+  const data = getFormData();
+  if (!data.po_number) { showToast('請輸入 PO 號', 'error'); return; }
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true; btn.textContent = '儲存中…';
+  const editId = document.getElementById('edit-id').value;
+  try {
+    let error;
+    if (editId) {
+      ({ error } = await sb.from('orders').update({ ...data, updated_at: new Date().toISOString() }).eq('id', editId));
+    } else {
+      ({ error } = await sb.from('orders').insert([data]));
+    }
+    if (error) throw error;
+    showToast(editId ? '訂單已更新！' : '訂單已儲存！', 'success');
+    clearForm();
+    loadRecords();
+  } catch (err) {
+    showToast('儲存失敗：' + err.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '儲存訂單';
+  }
+}
+
+async function loadRecords() {
+  const list = document.getElementById('records-list');
+  list.innerHTML = '<div class="empty-state">載入中…</div>';
+  const { data, error } = await sb.from('orders').select('*').order('created_at', { ascending: false }).limit(50);
+  if (error) { list.innerHTML = '<div class="empty-state">載入失敗：' + error.message + '</div>'; return; }
+  if (!data.length) { list.innerHTML = '<div class="empty-state">尚無訂單資料</div>'; return; }
+  list.innerHTML = data.map(o => {
+    const usd = o.amount_usd ? 'US$ ' + parseFloat(o.amount_usd).toLocaleString('en-US', {minimumFractionDigits:2}) : '—';
+    const badge = o.eta ? '<span class="badge badge-done">已進口</span>' : '<span class="badge badge-pending">待進口</span>';
+    return `<div class="record-card" id="rc-${o.id}">
+      <div class="rc-top"><span class="po">${o.po_number}</span><span class="amount">${usd}</span></div>
+      <div class="rc-dates">
+        ${o.etd ? '<span>ETD：' + o.etd + '</span>' : ''}
+        ${o.eta ? '<span>ETA：' + o.eta + '</span>' : ''}
+        ${o.kts_payment_date ? '<span>KTS入帳：' + o.kts_payment_date + '</span>' : ''}
+        <span>${badge}</span>
+      </div>
+      <div class="edit-actions">
+        <button class="edit-btn" onclick="editRecord(${o.id})">✏️ 編輯</button>
+        <button class="del-btn" onclick="deleteRecord(${o.id}, '${o.po_number}')">刪除</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+let allData = [];
+async function editRecord(id) {
+  const { data, error } = await sb.from('orders').select('*').eq('id', id).single();
+  if (error) { showToast('載入失敗', 'error'); return; }
+  const fields = ['po_number','amount_usd','etc_invoice_date','etd','eta','customer_signed_date',
+    'monthly_statement_date','transfer_receipt_date','warehouse_in_date','deduction_date',
+    'customs_agent_date','customs_fee','trade_promotion_fee','kts_payment_date','tl_payment_date'];
+  fields.forEach(f => { const el = document.getElementById(f); if(el && data[f] !== null) el.value = data[f]; });
+  document.getElementById('edit-id').value = id;
+  document.getElementById('form-title').textContent = '編輯訂單：' + data.po_number;
+  document.getElementById('submit-btn').textContent = '更新訂單';
+  document.getElementById('cancel-btn').style.display = 'block';
+  calcCommission();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function deleteRecord(id, po) {
+  if (!confirm('確定要刪除 ' + po + ' 嗎？')) return;
+  const { error } = await sb.from('orders').delete().eq('id', id);
+  if (error) { showToast('刪除失敗', 'error'); return; }
+  showToast('已刪除 ' + po, 'success');
+  loadRecords();
+}
+</script>
+</body>
+</html>

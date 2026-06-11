@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>訂單管控查詢</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f5f5f0; --surface: #fff; --surface2: #f8f8f5;
+    --border: #e2e2dc; --border2: #d0d0c8;
+    --text: #1a1a18; --text2: #6b6b64; --text3: #9b9b92;
+    --accent: #1a5fb4; --accent-light: #e8f0fc; --accent-hover: #154da0;
+    --green: #2e7d32; --green-bg: #e8f5e9;
+    --amber: #b45309; --amber-bg: #fef3e2;
+    --red: #c62828; --red-bg: #fdecea;
+    --radius: 10px; --radius-sm: 6px;
+    --shadow-lg: 0 4px 16px rgba(0,0,0,0.10);
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'PingFang TC', 'Microsoft JhengHei', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 15px; }
+
+  #login-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem 1rem; }
+  .login-card { background: var(--surface); border-radius: 16px; box-shadow: var(--shadow-lg); padding: 2.5rem 2rem; width: 100%; max-width: 360px; }
+  .login-logo { text-align: center; margin-bottom: 2rem; }
+  .login-logo .icon { width: 56px; height: 56px; background: var(--accent-light); border-radius: 14px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px; }
+  .login-logo .icon svg { width: 28px; height: 28px; stroke: var(--accent); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .login-logo h1 { font-size: 20px; font-weight: 600; }
+  .login-logo p { font-size: 13px; color: var(--text2); margin-top: 4px; }
+  .field { margin-bottom: 1rem; }
+  .field label { display: block; font-size: 13px; font-weight: 500; color: var(--text2); margin-bottom: 6px; }
+  .field input { width: 100%; padding: 11px 14px; border: 1.5px solid var(--border2); border-radius: var(--radius-sm); font-size: 15px; color: var(--text); background: var(--surface); outline: none; transition: border-color 0.15s; }
+  .field input:focus { border-color: var(--accent); }
+  .login-btn { width: 100%; padding: 12px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 0.5rem; }
+  .login-btn:hover { background: var(--accent-hover); }
+  .login-error { background: var(--red-bg); color: var(--red); font-size: 13px; padding: 10px 12px; border-radius: var(--radius-sm); margin-top: 12px; display: none; text-align: center; }
+
+  #app { display: none; }
+  .topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 1rem; display: flex; align-items: center; justify-content: space-between; height: 56px; position: sticky; top: 0; z-index: 10; }
+  .topbar-title { font-size: 16px; font-weight: 600; }
+  .top-btn { font-size: 13px; color: var(--text2); background: none; border: 1px solid var(--border2); padding: 5px 12px; border-radius: 99px; cursor: pointer; text-decoration: none; display: inline-block; margin-left: 8px; }
+  .top-btn:hover { background: var(--surface2); }
+  .main { padding: 1rem; max-width: 900px; margin: 0 auto; }
+
+  .filter-card { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); padding: 1rem; margin-bottom: 1rem; }
+  .filter-card h3 { font-size: 12px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
+  .date-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+  .date-row label { font-size: 12px; color: var(--text2); display: block; margin-bottom: 5px; }
+  .date-row input[type=date] { width: 100%; padding: 9px 10px; border: 1px solid var(--border2); border-radius: var(--radius-sm); font-size: 14px; color: var(--text); background: var(--surface); outline: none; }
+  .date-row input[type=date]:focus { border-color: var(--accent); }
+  .preset-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .preset-btn { padding: 5px 12px; font-size: 12px; border: 1px solid var(--border2); border-radius: 99px; background: var(--surface2); cursor: pointer; color: var(--text2); }
+  .preset-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+  .query-btn { width: 100%; padding: 11px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 15px; font-weight: 600; cursor: pointer; }
+  .query-btn:hover { background: var(--accent-hover); }
+
+  #result-section { display: none; }
+  .range-label { font-size: 13px; color: var(--text2); margin-bottom: 12px; padding: 8px 12px; background: var(--accent-light); border-radius: var(--radius-sm); border-left: 3px solid var(--accent); }
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-bottom: 1rem; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+  .stat-card .label { font-size: 11px; color: var(--text2); margin-bottom: 6px; font-weight: 500; }
+  .stat-card .value { font-size: 19px; font-weight: 700; line-height: 1.2; }
+  .stat-card .sub { font-size: 11px; color: var(--text3); margin-top: 4px; }
+  .stat-card.accent { background: var(--accent-light); border-color: #b8d0f8; }
+  .stat-card.accent .value { color: var(--accent); }
+  .stat-card.warn .value { color: var(--amber); }
+
+  .tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 1rem; }
+  .tab { padding: 8px 16px; font-size: 14px; cursor: pointer; color: var(--text2); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 500; }
+
+  .table-wrap { overflow-x: auto; background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { background: var(--surface2); padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 600; color: var(--text2); border-bottom: 1px solid var(--border); white-space: nowrap; text-transform: uppercase; letter-spacing: 0.04em; }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text); white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--surface2); }
+  .badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 99px; }
+  .badge-done { background: var(--green-bg); color: var(--green); }
+  .badge-pending { background: var(--amber-bg); color: var(--amber); }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .empty { text-align: center; padding: 3rem; color: var(--text3); font-size: 14px; }
+
+  @media (max-width: 600px) {
+    .stats-grid { grid-template-columns: 1fr 1fr; }
+    .stat-card .value { font-size: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></div>
+      <h1>訂單管控查詢</h1>
+      <p>SCC 訂單管控</p>
+    </div>
+    <div class="field"><label>帳號</label><input type="text" id="username" placeholder="請輸入帳號"></div>
+    <div class="field"><label>密碼</label><input type="password" id="password" placeholder="請輸入密碼"></div>
+    <button class="login-btn" onclick="doLogin()">登入</button>
+    <div class="login-error" id="login-error">帳號或密碼錯誤</div>
+  </div>
+</div>
+
+<div id="app">
+  <div class="topbar">
+    <span class="topbar-title">📊 訂單管控查詢</span>
+    <div>
+      <a href="訂單登打.html" class="top-btn">✏️ 登打</a>
+      <button class="top-btn" onclick="doLogout()">登出</button>
+    </div>
+  </div>
+  <div class="main">
+
+    <div class="filter-card">
+      <h3>日期區間篩選（深南 ETD）</h3>
+      <div class="date-row">
+        <div><label>開始日期</label><input type="date" id="date-from"></div>
+        <div><label>結束日期</label><input type="date" id="date-to"></div>
+      </div>
+      <div class="preset-row">
+        <button class="preset-btn" onclick="setPreset('all')">全部</button>
+        <button class="preset-btn" onclick="setPreset('thisYear')">今年</button>
+        <button class="preset-btn" onclick="setPreset('thisQ')">本季</button>
+        <button class="preset-btn" onclick="setPreset('lastQ')">上一季</button>
+        <button class="preset-btn" onclick="setPreset('thisM')">本月</button>
+        <button class="preset-btn" onclick="setPreset('lastM')">上個月</button>
+      </div>
+      <button class="query-btn" onclick="runQuery()">查詢</button>
+    </div>
+
+    <div id="result-section">
+      <div class="range-label" id="range-label"></div>
+      <div class="stats-grid">
+        <div class="stat-card accent"><div class="label">累計訂單筆數</div><div class="value" id="s-count">—</div><div class="sub" id="s-count-sub"></div></div>
+        <div class="stat-card accent"><div class="label">累計訂單金額</div><div class="value" id="s-total-usd">—</div><div class="sub">USD</div></div>
+        <div class="stat-card"><div class="label">已進口金額</div><div class="value" id="s-imported-usd">—</div><div class="sub">USD</div></div>
+        <div class="stat-card warn"><div class="label">尚未進口金額</div><div class="value" id="s-pending-usd">—</div><div class="sub">USD</div></div>
+        <div class="stat-card"><div class="label">累計 3% 佣金</div><div class="value" id="s-commission">—</div><div class="sub">NTD（USD:NTD=1:30）</div></div>
+        <div class="stat-card"><div class="label">進口費用合計</div><div class="value" id="s-import-cost">—</div><div class="sub" id="s-import-ratio"></div></div>
+      </div>
+
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('detail',this)">訂單明細</div>
+        <div class="tab" onclick="switchTab('monthly',this)">月份摘要</div>
+      </div>
+
+      <div id="tab-detail">
+        <div class="table-wrap"><table>
+          <thead><tr>
+            <th>#</th><th>PO 號</th><th class="num">金額 (USD)</th>
+            <th>深南 ETD</th><th>ETA / 清關</th>
+            <th class="num">報關費</th><th class="num">推貿費</th>
+            <th class="num">進口費合計</th><th class="num">3% 佣金</th><th>狀態</th>
+          </tr></thead>
+          <tbody id="detail-tbody"></tbody>
+        </table></div>
+      </div>
+
+      <div id="tab-monthly" style="display:none">
+        <div class="table-wrap"><table>
+          <thead><tr>
+            <th>月份</th><th class="num">筆數</th><th class="num">訂單金額 (USD)</th>
+            <th class="num">已進口 (USD)</th><th class="num">進口費合計 (NTD)</th><th class="num">3% 佣金 (NTD)</th>
+          </tr></thead>
+          <tbody id="monthly-tbody"></tbody>
+        </table></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://ppmytkolaqxtqcmztxxr.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBwbXl0a29sYXF4dHFjbXp0eHhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1MjA5OTAsImV4cCI6MjA5NTA5Njk5MH0.ERyqOCEBsD2rg6i49a7m5IHbxxQ1z7JvAQWqUfOYcto';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const USERS = { 'Tl3167': 'tl888$$$' };
+
+function doLogin() {
+  const u = document.getElementById('username').value.trim();
+  const p = document.getElementById('password').value;
+  if (USERS[u] && USERS[u] === p) {
+    sessionStorage.setItem('logged_query', u);
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    setPreset('all');
+  } else {
+    document.getElementById('login-error').style.display = 'block';
+  }
+}
+document.getElementById('password').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+document.getElementById('username').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('password').focus(); });
+if (sessionStorage.getItem('logged_query')) {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  setPreset('all');
+}
+function doLogout() { sessionStorage.removeItem('logged_query'); location.reload(); }
+
+function toISO(d) { return d.toISOString().slice(0,10); }
+function fmt(d) { return d ? d.replace(/-/g,'/') : '—'; }
+function fmtUSD(n) { return 'US$ ' + (n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtNTD(n) { return 'NT$ ' + Math.round(n||0).toLocaleString(); }
+
+function setPreset(p) {
+  const now = new Date(); let from, to;
+  if (p==='all') { runQuery(); return; }
+  if (p==='thisYear') { from=new Date(now.getFullYear(),0,1); to=new Date(now.getFullYear(),11,31); }
+  if (p==='thisM') { from=new Date(now.getFullYear(),now.getMonth(),1); to=new Date(now.getFullYear(),now.getMonth()+1,0); }
+  if (p==='lastM') { from=new Date(now.getFullYear(),now.getMonth()-1,1); to=new Date(now.getFullYear(),now.getMonth(),0); }
+  if (p==='thisQ') { const q=Math.floor(now.getMonth()/3); from=new Date(now.getFullYear(),q*3,1); to=new Date(now.getFullYear(),q*3+3,0); }
+  if (p==='lastQ') { const q=Math.floor(now.getMonth()/3); const lq=q===0?3:q-1; const yr=q===0?now.getFullYear()-1:now.getFullYear(); from=new Date(yr,lq*3,1); to=new Date(yr,lq*3+3,0); }
+  document.getElementById('date-from').value = toISO(from);
+  document.getElementById('date-to').value = toISO(to);
+  runQuery();
+}
+
+async function runQuery() {
+  const fromVal = document.getElementById('date-from').value;
+  const toVal = document.getElementById('date-to').value;
+  let query = sb.from('orders').select('*').order('etd', { ascending: true });
+  if (fromVal) query = query.gte('etd', fromVal);
+  if (toVal) query = query.lte('etd', toVal);
+  const { data, error } = await query;
+  if (error) { alert('查詢失敗：' + error.message); return; }
+
+  const imported = data.filter(o => o.eta);
+  const pending = data.filter(o => !o.eta);
+  const totalUSD = data.reduce((s,o) => s + (parseFloat(o.amount_usd)||0), 0);
+  const importedUSD = imported.reduce((s,o) => s + (parseFloat(o.amount_usd)||0), 0);
+  const pendingUSD = pending.reduce((s,o) => s + (parseFloat(o.amount_usd)||0), 0);
+  const totalImportCost = imported.reduce((s,o) => s + (o.customs_fee||0) + (o.trade_promotion_fee||0), 0);
+  const totalCommission = imported.reduce((s,o) => s + (parseFloat(o.amount_usd)||0)*30*0.03, 0);
+  const ratio = importedUSD > 0 ? (totalImportCost / (importedUSD * 30) * 100) : 0;
+
+  document.getElementById('range-label').textContent =
+    '統計日期區間：' + (fromVal||'全部') + (toVal?' ～ '+toVal:'') + '　共 ' + data.length + ' 筆';
+  document.getElementById('s-count').textContent = data.length;
+  document.getElementById('s-count-sub').textContent = '已進口 '+imported.length+' 筆 / 待進口 '+pending.length+' 筆';
+  document.getElementById('s-total-usd').textContent = fmtUSD(totalUSD);
+  document.getElementById('s-imported-usd').textContent = fmtUSD(importedUSD);
+  document.getElementById('s-pending-usd').textContent = fmtUSD(pendingUSD);
+  document.getElementById('s-commission').textContent = fmtNTD(totalCommission);
+  document.getElementById('s-import-cost').textContent = fmtNTD(totalImportCost);
+  document.getElementById('s-import-ratio').textContent = '進口費/已進口金額 ' + ratio.toFixed(2) + '%';
+
+  document.getElementById('detail-tbody').innerHTML = data.length === 0
+    ? '<tr><td colspan="10" class="empty">此區間內無訂單資料</td></tr>'
+    : data.map((o,i) => {
+        const importCost = (o.customs_fee||0)+(o.trade_promotion_fee||0);
+        const commission = (parseFloat(o.amount_usd)||0)*30*0.03;
+        return `<tr>
+          <td>${i+1}</td><td><strong>${o.po_number}</strong></td>
+          <td class="num">${fmtUSD(parseFloat(o.amount_usd)||0)}</td>
+          <td>${fmt(o.etd)}</td><td>${fmt(o.eta)}</td>
+          <td class="num">${o.customs_fee ? fmtNTD(o.customs_fee) : '—'}</td>
+          <td class="num">${o.trade_promotion_fee ? fmtNTD(o.trade_promotion_fee) : '—'}</td>
+          <td class="num">${importCost ? fmtNTD(importCost) : '—'}</td>
+          <td class="num">${fmtNTD(commission)}</td>
+          <td><span class="badge ${o.eta?'badge-done':'badge-pending'}">${o.eta?'已進口':'待進口'}</span></td>
+        </tr>`;
+      }).join('');
+
+  const monthMap = {};
+  data.forEach(o => {
+    if (!o.etd) return;
+    const key = o.etd.slice(0,7);
+    if (!monthMap[key]) monthMap[key] = {count:0,usd:0,importedUSD:0,importCost:0,commission:0};
+    monthMap[key].count++;
+    monthMap[key].usd += parseFloat(o.amount_usd)||0;
+    if (o.eta) {
+      monthMap[key].importedUSD += parseFloat(o.amount_usd)||0;
+      monthMap[key].importCost += (o.customs_fee||0)+(o.trade_promotion_fee||0);
+      monthMap[key].commission += (parseFloat(o.amount_usd)||0)*30*0.03;
+    }
+  });
+  document.getElementById('monthly-tbody').innerHTML = Object.keys(monthMap).sort().map(k => {
+    const m = monthMap[k];
+    return `<tr>
+      <td><strong>${k}</strong></td><td class="num">${m.count}</td>
+      <td class="num">${fmtUSD(m.usd)}</td><td class="num">${fmtUSD(m.importedUSD)}</td>
+      <td class="num">${m.importCost?fmtNTD(m.importCost):'—'}</td>
+      <td class="num">${fmtNTD(m.commission)}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('result-section').style.display = 'block';
+}
+
+function switchTab(t, el) {
+  document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tab-detail').style.display = t==='detail'?'block':'none';
+  document.getElementById('tab-monthly').style.display = t==='monthly'?'block':'none';
+}
+</script>
+</body>
+</html>
