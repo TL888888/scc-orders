@@ -231,6 +231,7 @@ body{font-family:'Segoe UI','Microsoft JhengHei',Arial,sans-serif;background:var
               <th>ETC 發票日期</th>
               <th>訂單金額 USD</th>
               <th>報關費 NTD</th>
+              <th>推貿費 NTD</th>
               <th>ETA</th>
               <th>TL 付款日</th>
               <th>狀態</th>
@@ -238,7 +239,7 @@ body{font-family:'Segoe UI','Microsoft JhengHei',Arial,sans-serif;background:var
             </tr>
           </thead>
           <tbody id="tbl-body">
-            <tr><td colspan="9" style="text-align:center;padding:40px;color:var(--mu)">載入中...</td></tr>
+            <tr><td colspan="10" style="text-align:center;padding:40px;color:var(--mu)">載入中...</td></tr>
           </tbody>
         </table>
       </div>
@@ -326,10 +327,10 @@ function clearFilter(){
 // ── DASHBOARD ──
 function renderDash(){
   const total=allOrders.length;
-  const imported=allOrders.filter(o=>calcStage(o)>=3).length;
+  const imported=allOrders.filter(o=>o.eta).length;
   const amt=allOrders.reduce((s,o)=>s+(+o.amount_usd||0),0);
-  const iamt=allOrders.filter(o=>calcStage(o)>=3).reduce((s,o)=>s+(+o.amount_usd||0),0);
-  const comm=amt*30*0.03;
+  const iamt=allOrders.filter(o=>o.eta).reduce((s,o)=>s+(+o.amount_usd||0),0);
+  const comm=iamt*30*0.03;
   const fee=allOrders.reduce((s,o)=>s+(+o.customs_fee||0)+(+o.trade_promotion_fee||0),0);
   g('kpi-total').textContent=total.toLocaleString();
   g('kpi-imported').textContent=imported.toLocaleString();
@@ -345,16 +346,17 @@ const SL=['','已建立','已出貨','已進口','已結清'];
 function renderTable(){
   const body=g('tbl-body');
   if(!allOrders.length){
-    body.innerHTML='<tr><td colspan="9"><div class="empty-state"><div class="ei">📭</div><p>目前沒有符合條件的訂單</p></div></td></tr>';
+    body.innerHTML='<tr><td colspan="10"><div class="empty-state"><div class="ei">📭</div><p>目前沒有符合條件的訂單</p></div></td></tr>';
     return;
   }
-  body.innerHTML=allOrders.map(o=>{const st=calcStage(o);return`
+  body.innerHTML=allOrders.map(o=>{const st=o.stage||calcStage(o);return`
     <tr>
       <td><strong>${o.po_number||'—'}</strong></td>
       <td>${fmtD(o.etd)}</td>
       <td>${fmtD(o.etc_invoice_date)}</td>
       <td>${o.amount_usd?'$'+fmtN(o.amount_usd):'—'}</td>
       <td>${o.customs_fee!=null?fmtNI(o.customs_fee):'—'}</td>
+      <td>${o.trade_promotion_fee!=null?fmtNI(o.trade_promotion_fee):'—'}</td>
       <td>${fmtD(o.eta)}</td>
       <td>${fmtD(o.tl_payment_date)}</td>
       <td><span class="bdg b${st}">${SL[st]||''}</span></td>
