@@ -514,10 +514,15 @@ async function extractText(file){
 function pdate(s){
   if(!s) return '';
   s=s.trim();
+  // YYYY/MM/DD or YYYY-MM-DD
   let m=s.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
   if(m) return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
-  m=s.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  // MM/DD/YYYY or M/D/YYYY
+  m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
   if(m) return `${m[3]}-${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}`;
+  // MM/DD/YY (2-digit year → 20xx)
+  m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2})$/);
+  if(m) return `20${m[3]}-${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}`;
   return '';
 }
 function pnum(s){ return s ? (parseFloat(String(s).replace(/[^0-9.]/g,''))||'') : ''; }
@@ -530,24 +535,26 @@ function parseOrder(txt){
     ||txt.match(/(?:PURCHASE\s+ORDER|ORDER\s+NO\.?)\s*:?\s*([A-Z0-9\-\/]+)/i)
     ||txt.match(/\bPO\s*#?\s*:?\s*([A-Z0-9]{4,})/i);
   if(m) r.po_number=m[1].trim();
-  // Order Date
-  m=txt.match(/ORDER\s+DATE\s*:?\s*(\d[\d\/\-]+)/i)
+  // Order Date — handles MM/DD/YY and MM/DD/YYYY
+  m=txt.match(/ORDER\s+DATE\s*:?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i)
     ||txt.match(/DATE\s*:?\s*(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})/i);
   if(m) r.order_date=pdate(m[1]);
-  // ETD
-  m=txt.match(/ETD\s*:?\s*(\d[\d\/\-]+)/i)
+  // ETD — Delivery field first, then ETD keyword
+  m=txt.match(/\bDELIVERY\b[^:]*:?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i)
+    ||txt.match(/ETD\s*:?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i)
     ||txt.match(/(?:SHIP\s+DATE|SHIPMENT\s+DATE|ESTIMATED\s+DEPARTURE)\s*:?\s*(\d[\d\/\-]+)/i);
   if(m) r.etd=pdate(m[1]);
-  // Qty
-  m=txt.match(/(?:ORDER\s+)?QTY\.?\s*:?\s*([\d,]+)/i)
-    ||txt.match(/QUANTITY\s*:?\s*([\d,]+)/i);
+  // Qty — Quantity field first
+  m=txt.match(/\bQUANTITY\s*:?\s*([\d,]+)/i)
+    ||txt.match(/(?:ORDER\s+)?QTY\.?\s*:?\s*([\d,]+)/i);
   if(m) r.order_qty=pnum(m[1]);
   // Unit Price
   m=txt.match(/UNIT\s+PRICE\s*:?\s*(?:USD|US\$|\$)?\s*([\d,\.]+)/i)
     ||txt.match(/PRICE\s*\/\s*(?:PC|PCS|UNIT|EA)\s*:?\s*(?:USD|US\$|\$)?\s*([\d,\.]+)/i);
   if(m) r.unit_price=pnum(m[1]);
-  // Amount
-  m=txt.match(/(?:TOTAL\s+AMOUNT|ORDER\s+AMOUNT)\s*:?\s*(?:USD|US\$|\$)?\s*([\d,\.]+)/i)
+  // Amount — Extended Price first, then TOTAL AMOUNT
+  m=txt.match(/EXTENDED\s+PRICE\s*:?\s*(?:USD|US\$|\$)?\s*([\d,\.]+)/i)
+    ||txt.match(/(?:TOTAL\s+AMOUNT|ORDER\s+AMOUNT)\s*:?\s*(?:USD|US\$|\$)?\s*([\d,\.]+)/i)
     ||txt.match(/(?:TOTAL|AMOUNT)\s*:?\s*(?:USD|US\$|\$)\s*([\d,\.]+)/i);
   if(m) r.order_amount_usd=pnum(m[1]);
   return r;
@@ -888,7 +895,7 @@ async function handleImportFile(file){
         }
       }
       return rec;
-    }).filter(r=>r.po_number);
+    }).filter(r=>r.po_number&&!/^(total|合計|小計|sum|subtotal|grand)/i.test(String(r.po_number).trim()));
     if(!mapped.length){toast('找不到 PO號碼 欄位或無有效資料','err');return;}
     impData=mapped;
     g('fn-imp').textContent=`📎 ${file.name}`;
