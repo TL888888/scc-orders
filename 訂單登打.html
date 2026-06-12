@@ -530,32 +530,28 @@ function pnum(s){ return s ? (parseFloat(String(s).replace(/[^0-9.]/g,''))||'') 
 function parseOrder(txt){
   const r={};
   let m;
-  // PO
-  m=txt.match(/P\.?O\.?\s*(?:NO\.?|NUMBER|#|:)\s*([A-Z0-9\-\/]+)/i)
-    ||txt.match(/(?:PURCHASE\s+ORDER|ORDER\s+NO\.?)\s*:?\s*([A-Z0-9\-\/]+)/i)
-    ||txt.match(/\bPO\s*#?\s*:?\s*([A-Z0-9]{4,})/i);
+  // PO NUMBER — "1459326 OP" → digits only
+  m=txt.match(/PO\s+NUMBER\s+(\d+)\s+OP/i)
+    ||txt.match(/PO\s+NUMBER\s+(\d+)/i)
+    ||txt.match(/P\.?O\.?\s*(?:NO\.?|#|:)\s*(\d{5,})/i);
   if(m) r.po_number=m[1].trim();
-  // Order Date — handles MM/DD/YY and MM/DD/YYYY
-  m=txt.match(/ORDER\s+DATE\s*:?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i)
-    ||txt.match(/DATE\s*:?\s*(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})/i);
+  // ORDER DATE — MM/DD/YY or MM/DD/YYYY
+  m=txt.match(/ORDER\s+DATE\s+(\d{1,2}\/\d{1,2}\/\d{2,4})/i);
   if(m) r.order_date=pdate(m[1]);
-  // ETD — Delivery field first, then ETD keyword
-  m=txt.match(/\bDELIVERY\b[^:]*:?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i)
-    ||txt.match(/ETD\s*:?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i)
-    ||txt.match(/(?:SHIP\s+DATE|SHIPMENT\s+DATE|ESTIMATED\s+DEPARTURE)\s*:?\s*(\d[\d\/\-]+)/i);
+  // ETD — Delivery column: M/D/YYYY format follows header within 200 chars
+  m=txt.match(/\bDelivery\b[\s\S]{0,200}?(\d{1,2}\/\d{1,2}\/\d{4})/i)
+    ||txt.match(/ETD\s*:?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i);
   if(m) r.etd=pdate(m[1]);
-  // Qty — Quantity field first
-  m=txt.match(/\bQUANTITY\s*:?\s*([\d,]+)/i)
-    ||txt.match(/(?:ORDER\s+)?QTY\.?\s*:?\s*([\d,]+)/i);
+  // Quantity — first comma-formatted number after "Quantity" column header
+  m=txt.match(/\bQuantity\b[\s\S]*?(\d{1,3}(?:,\d{3})+)/i);
   if(m) r.order_qty=pnum(m[1]);
-  // Unit Price
-  m=txt.match(/UNIT\s+PRICE\s*:?\s*(?:USD|US\$|\$)?\s*([\d,\.]+)/i)
-    ||txt.match(/PRICE\s*\/\s*(?:PC|PCS|UNIT|EA)\s*:?\s*(?:USD|US\$|\$)?\s*([\d,\.]+)/i);
+  // Unit Price — first decimal number (2–4 places) after "Unit Price" column header
+  m=txt.match(/\bUnit\s+Price\b[\s\S]{0,400}?(\b\d+\.\d{2,4}\b)/i);
   if(m) r.unit_price=pnum(m[1]);
-  // Amount — Extended Price first, then TOTAL AMOUNT
-  m=txt.match(/EXTENDED\s+PRICE\s*:?\s*(?:USD|US\$|\$)?\s*([\d,\.]+)/i)
-    ||txt.match(/(?:TOTAL\s+AMOUNT|ORDER\s+AMOUNT)\s*:?\s*(?:USD|US\$|\$)?\s*([\d,\.]+)/i)
-    ||txt.match(/(?:TOTAL|AMOUNT)\s*:?\s*(?:USD|US\$|\$)\s*([\d,\.]+)/i);
+  // TOTAL AMOUNT OF ORDER — USD value after header; fallback to Extended Price column
+  m=txt.match(/TOTAL\s+AMOUNT\s+OF\s+ORDER[\s\S]*?USD\s*([\d,]+\.\d{2})/i)
+    ||txt.match(/EXTENDED\s+PRICE[\s\S]{0,200}?(\d{1,3}(?:,\d{3})*\.\d{2})/i)
+    ||txt.match(/(?:TOTAL\s+AMOUNT|ORDER\s+AMOUNT)\s*:?\s*(?:USD|US\$|\$)?\s*([\d,]+\.\d{2})/i);
   if(m) r.order_amount_usd=pnum(m[1]);
   return r;
 }
@@ -563,15 +559,21 @@ function parseOrder(txt){
 function parseShipping(txt){
   const r={};
   let m;
-  m=txt.match(/(?:SHIPPING\s+NOTICE\s*(?:NO\.?|#)|DELIVERY\s+(?:NOTE|ORDER)\s*(?:NO\.?|#)|DN\s*(?:NO\.?|#|:))\s*([A-Z0-9\-\/]+)/i)
-    ||txt.match(/(?:SN|DN|DO)\s*#?\s*:?\s*([A-Z0-9\-\/]{4,})/i);
-  if(m) r.shipping_notice_no=m[1].trim();
-  m=txt.match(/(?:SHIP(?:PING)?\s+DATE|DELIVERY\s+DATE)\s*:?\s*(\d[\d\/\-]+)/i)
-    ||txt.match(/DATE\s*:?\s*(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})/i);
+  // 訂單編號 — standalone 7-digit number (not embedded in part numbers like "2025790-0V1.A00G")
+  // Chinese labels garble due to font encoding; rely on structure instead
+  m=txt.match(/(?<![A-Z0-9-])(\d{7})(?![A-Z0-9-])/i);
+  if(m) r.po_number=m[1];
+  // 交易日期 — YYYY/M/D is the only such date format in the shipping notice
+  m=txt.match(/(\d{4}\/\d{1,2}\/\d{1,2})/);
   if(m) r.shipping_date=pdate(m[1]);
-  m=txt.match(/(?:ACTUAL\s+)?(?:SHIPPED\s+)?QTY\.?\s*:?\s*([\d,]+)/i)
-    ||txt.match(/QUANTITY\s*:?\s*([\d,]+)/i);
-  if(m) r.actual_qty=pnum(m[1]);
+  // 數量 — total from "N Units" summary line; fallback to last comma-formatted number
+  m=txt.match(/(\d{1,3}(?:,\d{3})+)\s+Units/i);
+  if(m){
+    r.actual_qty=pnum(m[1]);
+  } else {
+    const all=[...txt.matchAll(/\b(\d{1,3}(?:,\d{3})+)\b/g)];
+    if(all.length) r.actual_qty=pnum(all[all.length-1][1]);
+  }
   return r;
 }
 
@@ -610,7 +612,10 @@ async function saveS1(){
   setBtnLoad('bs1',true,'儲存中...');
   const payload={
     po_number:po,
+    order_date:g('f1-od').value||null,
     etd:g('f1-etd').value||null,
+    order_qty:parseFloat(g('f1-qty').value)||null,
+    unit_price:parseFloat(g('f1-up').value)||null,
     amount_usd:parseFloat(g('f1-amt').value)||null,
     stage:1
   };
@@ -644,20 +649,28 @@ async function handleFile2(file){
   try{
     const txt=await extractText(file);
     const d=parseShipping(txt);
-    if(d.shipping_notice_no){ g('f2-sn').value=d.shipping_notice_no; g('f2-sn').classList.add('af'); }
+    if(d.po_number){
+      g('sr2').value=d.po_number;
+      doSearch(2);
+      toast(`找到訂單編號 ${d.po_number}，請從下拉選擇確認`,'info');
+    }
     if(d.shipping_date){ g('f2-sd').value=d.shipping_date; g('f2-sd').classList.add('af'); }
     if(d.actual_qty){ g('f2-aq').value=d.actual_qty; g('f2-aq').classList.add('af'); }
     calc2();
-    const cnt=Object.keys(d).length;
+    const cnt=Object.values(d).filter(v=>v).length;
     g('fn2').textContent=`📎 ${file.name}`;
-    toast(cnt>0?`擷取 ${cnt} 個欄位`:'未能自動擷取，請手動填寫', cnt>0?'ok':'info');
+    if(!d.po_number) toast(cnt>0?`擷取 ${cnt} 個欄位`:'未能自動擷取，請手動填寫', cnt>0?'ok':'info');
   } catch(e){ g('fn2').textContent='❌ 解析失敗'; toast('PDF解析失敗：'+e.message,'err'); }
 }
 async function saveS2(){
   if(!sel[2]){ toast('請先選擇訂單','err'); return; }
   setBtnLoad('bs2',true,'儲存中...');
   const payload={
+    shipping_notice_no:g('f2-sn').value||null,
     etc_invoice_date:g('f2-eid').value||null,
+    shipping_date:g('f2-sd').value||null,
+    actual_qty:parseFloat(g('f2-aq').value)||null,
+    actual_amount_usd:parseFloat(g('f2-aa').value)||null,
     stage:Math.max(sel[2].stage||1,2),
     updated_at:now()
   };
@@ -706,6 +719,7 @@ async function saveS4(){
   setBtnLoad('bs4',true,'儲存中...');
   const payload={
     kts_payment_date:g('f4-kd').value||null,
+    kts_payment_amount_usd:parseFloat(g('f4-ka').value)||null,
     tl_payment_date:g('f4-tld').value||null,
     stage:Math.max(sel[4].stage||1,4),
     updated_at:now()
@@ -767,7 +781,11 @@ async function selOrder(n, id){
   g(`ob${n}-sub`).textContent=
     `ETD：${fmtDate(data.etd)} | 金額：USD ${data.amount_usd?(+data.amount_usd).toLocaleString():'-'}`;
   if(n===2){
+    g('f2-sn').value=data.shipping_notice_no||'';
     g('f2-eid').value=data.etc_invoice_date||'';
+    g('f2-sd').value=data.shipping_date||'';
+    g('f2-aq').value=data.actual_qty||'';
+    g('f2-aa').value=data.actual_amount_usd||'';
     setRO(2,true);
   } else if(n===3){
     g('f3-eta').value=data.eta||'';
@@ -782,6 +800,7 @@ async function selOrder(n, id){
     setRO(3,true);
   } else if(n===4){
     g('f4-kd').value=data.kts_payment_date||'';
+    g('f4-ka').value=data.kts_payment_amount_usd||'';
     g('f4-tld').value=data.tl_payment_date||'';
     setRO(4,true);
   }
