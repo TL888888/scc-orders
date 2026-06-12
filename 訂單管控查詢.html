@@ -4,297 +4,461 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>訂單管控查詢</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --bg: #f5f5f0; --surface: #fff; --surface2: #f8f8f5;
-    --border: #e2e2dc; --border2: #d0d0c8;
-    --text: #1a1a18; --text2: #6b6b64; --text3: #9b9b92;
-    --accent: #1a5fb4; --accent-light: #e8f0fc; --accent-hover: #154da0;
-    --green: #2e7d32; --green-bg: #e8f5e9;
-    --amber: #b45309; --amber-bg: #fef3e2;
-    --red: #c62828; --red-bg: #fdecea;
-    --radius: 10px; --radius-sm: 6px;
-    --shadow-lg: 0 4px 16px rgba(0,0,0,0.10);
-  }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'PingFang TC', 'Microsoft JhengHei', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 15px; }
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --pri:#1e40af;--pri-l:#3b82f6;--pri-bg:#eff6ff;
+  --ok:#16a34a;--ok-bg:#dcfce7;
+  --err:#dc2626;--err-bg:#fee2e2;
+  --warn:#d97706;--warn-bg:#fef3c7;
+  --pur:#7c3aed;--pur-bg:#ede9fe;
+  --bg:#f1f5f9;--card:#fff;--border:#e2e8f0;
+  --tx:#1e293b;--mu:#64748b
+}
+body{font-family:'Segoe UI','Microsoft JhengHei',Arial,sans-serif;background:var(--bg);color:var(--tx);min-height:100vh}
 
-  #login-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem 1rem; }
-  .login-card { background: var(--surface); border-radius: 16px; box-shadow: var(--shadow-lg); padding: 2.5rem 2rem; width: 100%; max-width: 360px; }
-  .login-logo { text-align: center; margin-bottom: 2rem; }
-  .login-logo .icon { width: 56px; height: 56px; background: var(--accent-light); border-radius: 14px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px; }
-  .login-logo .icon svg { width: 28px; height: 28px; stroke: var(--accent); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-  .login-logo h1 { font-size: 20px; font-weight: 600; }
-  .login-logo p { font-size: 13px; color: var(--text2); margin-top: 4px; }
-  .field { margin-bottom: 1rem; }
-  .field label { display: block; font-size: 13px; font-weight: 500; color: var(--text2); margin-bottom: 6px; }
-  .field input { width: 100%; padding: 11px 14px; border: 1.5px solid var(--border2); border-radius: var(--radius-sm); font-size: 15px; color: var(--text); background: var(--surface); outline: none; transition: border-color 0.15s; }
-  .field input:focus { border-color: var(--accent); }
-  .login-btn { width: 100%; padding: 12px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 0.5rem; }
-  .login-btn:hover { background: var(--accent-hover); }
-  .login-error { background: var(--red-bg); color: var(--red); font-size: 13px; padding: 10px 12px; border-radius: var(--radius-sm); margin-top: 12px; display: none; text-align: center; }
+/* LOGIN */
+#login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,#0f172a 0%,#1e3a8a 60%,#1e40af 100%)}
+.login-box{background:#fff;border-radius:20px;padding:48px 40px;width:100%;max-width:400px;
+  box-shadow:0 30px 60px rgba(0,0,0,.4);text-align:center}
+.login-logo{font-size:2.5rem;margin-bottom:8px}
+.login-box h2{font-size:1.4rem;font-weight:800;color:var(--pri);margin-bottom:4px}
+.login-box p{color:var(--mu);font-size:.85rem;margin-bottom:32px}
+.lf{margin-bottom:16px;text-align:left}
+.lf label{display:block;font-size:.78rem;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.lf input{width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:.95rem;font-family:inherit;transition:border-color .2s}
+.lf input:focus{outline:none;border-color:var(--pri-l);box-shadow:0 0 0 3px rgba(59,130,246,.15)}
+#login-err{background:var(--err-bg);color:var(--err);border-radius:8px;padding:10px 14px;font-size:.85rem;font-weight:600;margin-bottom:16px;display:none}
 
-  #app { display: none; }
-  .topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 1rem; display: flex; align-items: center; justify-content: space-between; height: 56px; position: sticky; top: 0; z-index: 10; }
-  .topbar-title { font-size: 16px; font-weight: 600; }
-  .top-btn { font-size: 13px; color: var(--text2); background: none; border: 1px solid var(--border2); padding: 5px 12px; border-radius: 99px; cursor: pointer; text-decoration: none; display: inline-block; margin-left: 8px; }
-  .top-btn:hover { background: var(--surface2); }
-  .main { padding: 1rem; max-width: 900px; margin: 0 auto; }
+/* APP */
+#app-screen{display:none}
+.topbar{background:var(--pri);color:#fff;height:58px;display:flex;align-items:center;
+  justify-content:space-between;padding:0 28px;position:sticky;top:0;z-index:200;
+  box-shadow:0 2px 12px rgba(0,0,0,.25)}
+.topbar-title{font-size:1.05rem;font-weight:800}
+.topbar-right{display:flex;align-items:center;gap:10px}
 
-  .filter-card { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); padding: 1rem; margin-bottom: 1rem; }
-  .filter-card h3 { font-size: 12px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
-  .date-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
-  .date-row label { font-size: 12px; color: var(--text2); display: block; margin-bottom: 5px; }
-  .date-row input[type=date] { width: 100%; padding: 9px 10px; border: 1px solid var(--border2); border-radius: var(--radius-sm); font-size: 14px; color: var(--text); background: var(--surface); outline: none; }
-  .date-row input[type=date]:focus { border-color: var(--accent); }
-  .preset-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
-  .preset-btn { padding: 5px 12px; font-size: 12px; border: 1px solid var(--border2); border-radius: 99px; background: var(--surface2); cursor: pointer; color: var(--text2); }
-  .preset-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
-  .query-btn { width: 100%; padding: 11px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 15px; font-weight: 600; cursor: pointer; }
-  .query-btn:hover { background: var(--accent-hover); }
+/* FILTER BAR */
+.filter-bar{background:#fff;border-bottom:1px solid var(--border);padding:14px 28px;
+  display:flex;flex-wrap:wrap;gap:10px;align-items:center;position:sticky;top:58px;z-index:100}
+.filter-bar input[type=date],.filter-bar input[type=text]{
+  padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;
+  font-size:.875rem;transition:border-color .2s}
+.filter-bar input:focus{outline:none;border-color:var(--pri-l)}
+.filter-bar label{font-size:.8rem;color:var(--mu);font-weight:600;white-space:nowrap}
+.filter-sep{color:var(--border);font-size:1.2rem}
 
-  #result-section { display: none; }
-  .range-label { font-size: 13px; color: var(--text2); margin-bottom: 12px; padding: 8px 12px; background: var(--accent-light); border-radius: var(--radius-sm); border-left: 3px solid var(--accent); }
-  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-bottom: 1rem; }
-  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
-  .stat-card .label { font-size: 11px; color: var(--text2); margin-bottom: 6px; font-weight: 500; }
-  .stat-card .value { font-size: 19px; font-weight: 700; line-height: 1.2; }
-  .stat-card .sub { font-size: 11px; color: var(--text3); margin-top: 4px; }
-  .stat-card.accent { background: var(--accent-light); border-color: #b8d0f8; }
-  .stat-card.accent .value { color: var(--accent); }
-  .stat-card.warn .value { color: var(--amber); }
+/* MAIN */
+.main{padding:24px 28px;max-width:1400px;margin:0 auto}
 
-  .tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 1rem; }
-  .tab { padding: 8px 16px; font-size: 14px; cursor: pointer; color: var(--text2); border-bottom: 2px solid transparent; margin-bottom: -1px; }
-  .tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 500; }
+/* DASHBOARD CARDS */
+.dash{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:28px}
+.dcard{background:#fff;border-radius:14px;padding:20px;border:1px solid var(--border);
+  box-shadow:0 1px 4px rgba(0,0,0,.05);text-align:center}
+.dcard .val{font-size:1.5rem;font-weight:800;margin-bottom:4px;line-height:1.2}
+.dcard .lbl{font-size:.75rem;color:var(--mu);font-weight:600;line-height:1.4}
+.dcard.c-blue .val{color:var(--pri)}
+.dcard.c-green .val{color:var(--ok)}
+.dcard.c-orange .val{color:var(--warn)}
+.dcard.c-purple .val{color:var(--pur)}
 
-  .table-wrap { overflow-x: auto; background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th { background: var(--surface2); padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 600; color: var(--text2); border-bottom: 1px solid var(--border); white-space: nowrap; text-transform: uppercase; letter-spacing: 0.04em; }
-  td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text); white-space: nowrap; }
-  tr:last-child td { border-bottom: none; }
-  tr:hover td { background: var(--surface2); }
-  .badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 99px; }
-  .badge-done { background: var(--green-bg); color: var(--green); }
-  .badge-pending { background: var(--amber-bg); color: var(--amber); }
-  .num { text-align: right; font-variant-numeric: tabular-nums; }
-  .empty { text-align: center; padding: 3rem; color: var(--text3); font-size: 14px; }
+/* TABLE */
+.table-wrap{background:#fff;border-radius:14px;border:1px solid var(--border);overflow:hidden;
+  box-shadow:0 1px 4px rgba(0,0,0,.05)}
+.table-hd{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;
+  align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.table-hd-title{font-size:.95rem;font-weight:800;color:var(--tx)}
+.tbl{width:100%;border-collapse:collapse;font-size:.85rem}
+.tbl th{background:#f8fafc;padding:11px 14px;text-align:left;font-size:.75rem;font-weight:700;
+  color:var(--mu);text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid var(--border);
+  white-space:nowrap}
+.tbl td{padding:12px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:#fafafa}
+.tbl-scroll{overflow-x:auto}
 
-  @media (max-width: 600px) {
-    .stats-grid { grid-template-columns: 1fr 1fr; }
-    .stat-card .value { font-size: 16px; }
-  }
+/* BADGE */
+.bdg{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:700;white-space:nowrap}
+.b1{background:#fef9c3;color:#854d0e}
+.b2{background:#dbeafe;color:#1d4ed8}
+.b3{background:#dcfce7;color:#15803d}
+.b4{background:#ede9fe;color:#6d28d9}
+
+/* BTNS */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 18px;
+  border-radius:9px;font-size:.85rem;font-weight:700;cursor:pointer;border:2px solid transparent;
+  font-family:inherit;transition:all .2s;white-space:nowrap}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-pri{background:var(--pri);color:#fff;border-color:var(--pri)}
+.btn-pri:hover:not(:disabled){background:#1e3a8a}
+.btn-ok{background:var(--ok);color:#fff;border-color:var(--ok)}
+.btn-ok:hover:not(:disabled){background:#15803d}
+.btn-gh{background:#f1f5f9;color:var(--tx);border-color:#f1f5f9}
+.btn-gh:hover:not(:disabled){background:#e2e8f0}
+.btn-out{background:#fff;color:var(--pri);border-color:var(--pri)}
+.btn-out:hover:not(:disabled){background:var(--pri-bg)}
+.btn-sm{padding:6px 12px;font-size:.78rem}
+
+/* MODAL */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;
+  display:flex;align-items:center;justify-content:center;padding:24px;display:none}
+.modal-bg.open{display:flex}
+.modal{background:#fff;border-radius:16px;width:100%;max-width:780px;max-height:90vh;
+  overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.3)}
+.modal-hd{padding:24px 28px;border-bottom:1px solid var(--border);display:flex;
+  align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:1}
+.modal-hd h3{font-size:1.05rem;font-weight:800}
+.modal-body{padding:24px 28px}
+.info-group{margin-bottom:24px}
+.info-group-title{font-size:.75rem;font-weight:700;color:var(--mu);text-transform:uppercase;
+  letter-spacing:.5px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.info-grid.g3{grid-template-columns:1fr 1fr 1fr}
+.info-item{display:flex;flex-direction:column;gap:4px}
+.info-item .il{font-size:.73rem;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.4px}
+.info-item .iv{font-size:.9rem;font-weight:600;color:var(--tx)}
+.info-item .iv.empty{color:#cbd5e1}
+
+/* TOAST */
+#tc{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;max-width:360px}
+.toast{padding:14px 18px;border-radius:12px;font-size:.875rem;font-weight:600;
+  box-shadow:0 8px 24px rgba(0,0,0,.15);animation:tin .3s ease}
+@keyframes tin{from{transform:translateX(120%);opacity:0}to{transform:translateX(0);opacity:1}}
+.t-ok{background:var(--ok-bg);color:var(--ok);border:1px solid #86efac}
+.t-err{background:var(--err-bg);color:var(--err);border:1px solid #fca5a5}
+.t-info{background:var(--pri-bg);color:var(--pri);border:1px solid #93c5fd}
+
+/* SPINNER */
+.sp{width:16px;height:16px;border:2.5px solid rgba(255,255,255,.4);border-top-color:#fff;
+  border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* EMPTY */
+.empty-state{padding:60px 20px;text-align:center;color:var(--mu)}
+.empty-state .ei{font-size:2.5rem;margin-bottom:12px}
+.empty-state p{font-size:.9rem}
+
+@media(max-width:1100px){.dash{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:700px){
+  .dash{grid-template-columns:repeat(2,1fr)}
+  .main,.filter-bar,.topbar{padding-left:16px;padding-right:16px}
+  .info-grid,.info-grid.g3{grid-template-columns:1fr}
+}
 </style>
 </head>
 <body>
 
+<!-- LOGIN -->
 <div id="login-screen">
-  <div class="login-card">
-    <div class="login-logo">
-      <div class="icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></div>
-      <h1>訂單管控查詢</h1>
-      <p>SCC 訂單管控</p>
-    </div>
-    <div class="field"><label>帳號</label><input type="text" id="username" placeholder="請輸入帳號"></div>
-    <div class="field"><label>密碼</label><input type="password" id="password" placeholder="請輸入密碼"></div>
-    <button class="login-btn" onclick="doLogin()">登入</button>
-    <div class="login-error" id="login-error">帳號或密碼錯誤</div>
+  <div class="login-box">
+    <div class="login-logo">📊</div>
+    <h2>訂單管控查詢</h2>
+    <p>請輸入帳號與密碼以登入</p>
+    <div id="login-err">帳號或密碼錯誤，請重試</div>
+    <div class="lf"><label>帳號</label><input type="text" id="un" placeholder="帳號" autocomplete="username"></div>
+    <div class="lf"><label>密碼</label><input type="password" id="pw" placeholder="密碼" autocomplete="current-password"></div>
+    <button class="btn btn-pri" style="width:100%;margin-top:8px" onclick="doLogin()">登入</button>
   </div>
 </div>
 
-<div id="app">
+<!-- APP -->
+<div id="app-screen">
   <div class="topbar">
-    <span class="topbar-title">📊 訂單管控查詢</span>
-    <div>
-      <a href="訂單登打.html" class="top-btn">✏️ 登打</a>
-      <button class="top-btn" onclick="doLogout()">登出</button>
+    <div class="topbar-title">📊 訂單管控查詢</div>
+    <div class="topbar-right">
+      <span id="tb-user" style="opacity:.85;font-size:.85rem"></span>
+      <button class="btn btn-sm btn-ok" onclick="exportExcel()">📥 匯出 Excel</button>
+      <button class="btn btn-sm" onclick="doLogout()"
+        style="color:#fff;background:rgba(255,255,255,.15);border:none;padding:6px 14px;border-radius:8px">登出</button>
     </div>
   </div>
-  <div class="main">
 
-    <div class="filter-card">
-      <h3>日期區間篩選（深南 ETD）</h3>
-      <div class="date-row">
-        <div><label>開始日期</label><input type="date" id="date-from"></div>
-        <div><label>結束日期</label><input type="date" id="date-to"></div>
+  <!-- FILTER -->
+  <div class="filter-bar">
+    <label>ETD 區間</label>
+    <input type="date" id="f-from" onchange="loadOrders()">
+    <span class="filter-sep">—</span>
+    <input type="date" id="f-to" onchange="loadOrders()">
+    <label style="margin-left:8px">PO 搜尋</label>
+    <input type="text" id="f-po" placeholder="模糊搜尋 PO 號碼..." style="width:200px" oninput="debounceLoad()">
+    <button class="btn btn-gh btn-sm" onclick="clearFilter()">清除篩選</button>
+    <span id="filter-count" style="font-size:.8rem;color:var(--mu)"></span>
+  </div>
+
+  <div class="main">
+    <!-- DASHBOARD -->
+    <div class="dash">
+      <div class="dcard c-blue">
+        <div class="val" id="kpi-total">—</div>
+        <div class="lbl">累計訂單筆數</div>
       </div>
-      <div class="preset-row">
-        <button class="preset-btn" onclick="setPreset('all')">全部</button>
-        <button class="preset-btn" onclick="setPreset('thisYear')">今年</button>
-        <button class="preset-btn" onclick="setPreset('thisQ')">本季</button>
-        <button class="preset-btn" onclick="setPreset('lastQ')">上一季</button>
-        <button class="preset-btn" onclick="setPreset('thisM')">本月</button>
-        <button class="preset-btn" onclick="setPreset('lastM')">上個月</button>
+      <div class="dcard c-green">
+        <div class="val" id="kpi-imported">—</div>
+        <div class="lbl">已進口筆數</div>
       </div>
-      <button class="query-btn" onclick="runQuery()">查詢</button>
+      <div class="dcard c-blue">
+        <div class="val" id="kpi-amt">—</div>
+        <div class="lbl">累計訂單金額<br>USD</div>
+      </div>
+      <div class="dcard c-green">
+        <div class="val" id="kpi-iamt">—</div>
+        <div class="lbl">已進口總金額<br>USD</div>
+      </div>
+      <div class="dcard c-orange">
+        <div class="val" id="kpi-comm">—</div>
+        <div class="lbl">累計佣金<br>NTD</div>
+      </div>
+      <div class="dcard c-purple">
+        <div class="val" id="kpi-fee">—</div>
+        <div class="lbl">累計進口費用<br>NTD</div>
+      </div>
     </div>
 
-    <div id="result-section">
-      <div class="range-label" id="range-label"></div>
-      <div class="stats-grid">
-        <div class="stat-card accent"><div class="label">累計訂單筆數</div><div class="value" id="s-count">—</div><div class="sub" id="s-count-sub"></div></div>
-        <div class="stat-card accent"><div class="label">累計訂單金額</div><div class="value" id="s-total-usd">—</div><div class="sub">USD</div></div>
-        <div class="stat-card"><div class="label">已進口金額</div><div class="value" id="s-imported-usd">—</div><div class="sub">USD</div></div>
-        <div class="stat-card warn"><div class="label">尚未進口金額</div><div class="value" id="s-pending-usd">—</div><div class="sub">USD</div></div>
-        <div class="stat-card"><div class="label">累計 3% 佣金</div><div class="value" id="s-commission">—</div><div class="sub">NTD（USD:NTD=1:30）</div></div>
-        <div class="stat-card"><div class="label">進口費用合計</div><div class="value" id="s-import-cost">—</div><div class="sub" id="s-import-ratio"></div></div>
+    <!-- TABLE -->
+    <div class="table-wrap">
+      <div class="table-hd">
+        <div class="table-hd-title">訂單列表</div>
       </div>
-
-      <div class="tabs">
-        <div class="tab active" onclick="switchTab('detail',this)">訂單明細</div>
-        <div class="tab" onclick="switchTab('monthly',this)">月份摘要</div>
-      </div>
-
-      <div id="tab-detail">
-        <div class="table-wrap"><table>
-          <thead><tr>
-            <th>#</th><th>PO 號</th><th class="num">金額 (USD)</th>
-            <th>深南 ETD</th><th>ETA / 清關</th>
-            <th class="num">報關費</th><th class="num">推貿費</th>
-            <th class="num">進口費合計</th><th class="num">3% 佣金</th><th>狀態</th>
-          </tr></thead>
-          <tbody id="detail-tbody"></tbody>
-        </table></div>
-      </div>
-
-      <div id="tab-monthly" style="display:none">
-        <div class="table-wrap"><table>
-          <thead><tr>
-            <th>月份</th><th class="num">筆數</th><th class="num">訂單金額 (USD)</th>
-            <th class="num">已進口 (USD)</th><th class="num">進口費合計 (NTD)</th><th class="num">3% 佣金 (NTD)</th>
-          </tr></thead>
-          <tbody id="monthly-tbody"></tbody>
-        </table></div>
+      <div class="tbl-scroll">
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th>PO 號碼</th>
+              <th>訂單日期</th>
+              <th>ETD</th>
+              <th>訂單數量</th>
+              <th>訂單金額 USD</th>
+              <th>實際金額 USD</th>
+              <th>ETA</th>
+              <th>狀態</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tbl-body">
+            <tr><td colspan="9" style="text-align:center;padding:40px;color:var(--mu)">載入中...</td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
 </div>
+
+<!-- DETAIL MODAL -->
+<div class="modal-bg" id="modal" onclick="closeModalBg(event)">
+  <div class="modal">
+    <div class="modal-hd">
+      <h3 id="modal-title">訂單詳情</h3>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span id="modal-badge"></span>
+        <button class="btn btn-gh btn-sm" onclick="closeModal()">✕ 關閉</button>
+      </div>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<div id="tc"></div>
 
 <script>
-const SUPABASE_URL = 'https://ppmytkolaqxtqcmztxxr.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBwbXl0a29sYXF4dHFjbXp0eHhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1MjA5OTAsImV4cCI6MjA5NTA5Njk5MH0.ERyqOCEBsD2rg6i49a7m5IHbxxQ1z7JvAQWqUfOYcto';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const SURL='https://ppmytkolaqxtqcmztxxr.supabase.co';
+const SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBwbXl0a29sYXF4dHFjbXp0eHhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1MjA5OTAsImV4cCI6MjA5NTA5Njk5MH0.ERyqOCEBsD2rg6i49a7m5IHbxxQ1z7JvAQWqUfOYcto';
+const db=supabase.createClient(SURL,SKEY);
 
-const USERS = { 'Tl3167': 'tl888$$$' };
+const USERS={'Tl3167':'tl888$$$'};
+let CU=null;
+let allOrders=[];
+let lt=null;
 
-function doLogin() {
-  const u = document.getElementById('username').value.trim();
-  const p = document.getElementById('password').value;
-  if (USERS[u] && USERS[u] === p) {
-    sessionStorage.setItem('logged_query', u);
-    document.getElementById('login-screen').style.display = 'none';
-    document.getElementById('app').style.display = 'block';
-    setPreset('all');
-  } else {
-    document.getElementById('login-error').style.display = 'block';
+function g(id){return document.getElementById(id)}
+function toast(msg,type='info'){
+  const el=document.createElement('div');
+  el.className=`toast t-${type}`;el.textContent=msg;
+  g('tc').appendChild(el);setTimeout(()=>el.remove(),3500);
+}
+function fmtD(s){return s?s.replace(/-/g,'/'):'—'}
+function fmtN(v,dec=2){return v!=null&&v!==''?Number(v).toLocaleString('zh-TW',{minimumFractionDigits:dec,maximumFractionDigits:dec}):'—'}
+function fmtNI(v){return v!=null&&v!==''?Math.round(Number(v)).toLocaleString('zh-TW'):'—'}
+
+// ── AUTH ──
+function doLogin(){
+  const u=g('un').value.trim(),p=g('pw').value;
+  if(USERS[u]&&USERS[u]===p){
+    CU=u;sessionStorage.setItem('u',u);
+    g('login-screen').style.display='none';
+    g('app-screen').style.display='block';
+    g('tb-user').textContent=u;
+    g('login-err').style.display='none';
+    loadOrders();
+  } else {g('login-err').style.display='block';}
+}
+function doLogout(){sessionStorage.removeItem('u');location.reload();}
+g('pw').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+
+// ── LOAD ──
+async function loadOrders(){
+  const from=g('f-from').value,to=g('f-to').value,po=g('f-po').value.trim();
+  let q=db.from('orders').select('*').order('created_at',{ascending:false});
+  if(from) q=q.gte('etd',from);
+  if(to) q=q.lte('etd',to);
+  if(po) q=q.ilike('po_number',`%${po}%`);
+  const {data,error}=await q;
+  if(error){toast('載入失敗：'+error.message,'err');return;}
+  allOrders=data||[];
+  renderDash();
+  renderTable();
+}
+let ldTimer=null;
+function debounceLoad(){clearTimeout(ldTimer);ldTimer=setTimeout(loadOrders,350);}
+function clearFilter(){
+  g('f-from').value='';g('f-to').value='';g('f-po').value='';loadOrders();
+}
+
+// ── DASHBOARD ──
+function renderDash(){
+  const total=allOrders.length;
+  const imported=allOrders.filter(o=>o.stage>=3).length;
+  const amt=allOrders.reduce((s,o)=>s+(+o.order_amount_usd||0),0);
+  const iamt=allOrders.filter(o=>o.stage>=3).reduce((s,o)=>s+(+o.actual_amount_usd||0),0);
+  const comm=amt*30*0.03;
+  const fee=allOrders.reduce((s,o)=>s+(+o.customs_fee||0)+(+o.trade_promotion_fee||0),0);
+  g('kpi-total').textContent=total.toLocaleString();
+  g('kpi-imported').textContent=imported.toLocaleString();
+  g('kpi-amt').textContent=fmtN(amt,0);
+  g('kpi-iamt').textContent=fmtN(iamt,0);
+  g('kpi-comm').textContent=fmtNI(comm);
+  g('kpi-fee').textContent=fmtNI(fee);
+  g('filter-count').textContent=`共 ${total} 筆`;
+}
+
+// ── TABLE ──
+const SL=['','已建立','已出貨','已進口','已結清'];
+function renderTable(){
+  const body=g('tbl-body');
+  if(!allOrders.length){
+    body.innerHTML='<tr><td colspan="9"><div class="empty-state"><div class="ei">📭</div><p>目前沒有符合條件的訂單</p></div></td></tr>';
+    return;
   }
-}
-document.getElementById('password').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
-document.getElementById('username').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('password').focus(); });
-if (sessionStorage.getItem('logged_query')) {
-  document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('app').style.display = 'block';
-  setPreset('all');
-}
-function doLogout() { sessionStorage.removeItem('logged_query'); location.reload(); }
-
-function toISO(d) { return d.toISOString().slice(0,10); }
-function fmt(d) { return d ? d.replace(/-/g,'/') : '—'; }
-function fmtUSD(n) { return 'US$ ' + (n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-function fmtNTD(n) { return 'NT$ ' + Math.round(n||0).toLocaleString(); }
-
-function setPreset(p) {
-  const now = new Date(); let from, to;
-  if (p==='all') { runQuery(); return; }
-  if (p==='thisYear') { from=new Date(now.getFullYear(),0,1); to=new Date(now.getFullYear(),11,31); }
-  if (p==='thisM') { from=new Date(now.getFullYear(),now.getMonth(),1); to=new Date(now.getFullYear(),now.getMonth()+1,0); }
-  if (p==='lastM') { from=new Date(now.getFullYear(),now.getMonth()-1,1); to=new Date(now.getFullYear(),now.getMonth(),0); }
-  if (p==='thisQ') { const q=Math.floor(now.getMonth()/3); from=new Date(now.getFullYear(),q*3,1); to=new Date(now.getFullYear(),q*3+3,0); }
-  if (p==='lastQ') { const q=Math.floor(now.getMonth()/3); const lq=q===0?3:q-1; const yr=q===0?now.getFullYear()-1:now.getFullYear(); from=new Date(yr,lq*3,1); to=new Date(yr,lq*3+3,0); }
-  document.getElementById('date-from').value = toISO(from);
-  document.getElementById('date-to').value = toISO(to);
-  runQuery();
+  body.innerHTML=allOrders.map(o=>`
+    <tr>
+      <td><strong>${o.po_number||'—'}</strong></td>
+      <td>${fmtD(o.order_date)}</td>
+      <td>${fmtD(o.etd)}</td>
+      <td>${o.order_qty?Number(o.order_qty).toLocaleString():'—'}</td>
+      <td>${o.order_amount_usd?'$'+fmtN(o.order_amount_usd):'—'}</td>
+      <td>${o.actual_amount_usd?'$'+fmtN(o.actual_amount_usd):'—'}</td>
+      <td>${fmtD(o.eta)}</td>
+      <td><span class="bdg b${o.stage}">${SL[o.stage]||''}</span></td>
+      <td><button class="btn btn-out btn-sm" onclick="openDetail('${o.id}')">詳情</button></td>
+    </tr>`).join('');
 }
 
-async function runQuery() {
-  const fromVal = document.getElementById('date-from').value;
-  const toVal = document.getElementById('date-to').value;
-  let query = sb.from('orders').select('*').order('etd', { ascending: true });
-  if (fromVal) query = query.gte('etd', fromVal);
-  if (toVal) query = query.lte('etd', toVal);
-  const { data, error } = await query;
-  if (error) { alert('查詢失敗：' + error.message); return; }
+// ── MODAL ──
+function openDetail(id){
+  const o=allOrders.find(x=>x.id===id);
+  if(!o) return;
+  g('modal-title').textContent=`PO：${o.po_number||'—'}`;
+  g('modal-badge').innerHTML=`<span class="bdg b${o.stage}">${SL[o.stage]||''}</span>`;
+  const iv=(v,num)=>`<span class="iv${(!v&&v!==0)?' empty':''}">${(!v&&v!==0)?'—':num?fmtN(v):typeof v==='number'?v:v}</span>`;
+  const dt=v=>`<span class="iv${!v?' empty':''}">${v?fmtD(v):'—'}</span>`;
+  const nu=v=>`<span class="iv${!v?' empty':''}">${v!=null&&v!==''?fmtN(v):'—'}</span>`;
+  const ni=v=>`<span class="iv${!v?' empty':''}">${v!=null&&v!==''?fmtNI(v):'—'}</span>`;
+  g('modal-body').innerHTML=`
+    <div class="info-group">
+      <div class="info-group-title">第一階段：訂單資料</div>
+      <div class="info-grid">
+        <div class="info-item"><span class="il">PO 號碼</span>${iv(o.po_number)}</div>
+        <div class="info-item"><span class="il">訂單日期</span>${dt(o.order_date)}</div>
+        <div class="info-item"><span class="il">ETD（預計出貨日）</span>${dt(o.etd)}</div>
+        <div class="info-item"><span class="il">訂單數量</span><span class="iv${!o.order_qty?' empty':''}">${o.order_qty!=null?Number(o.order_qty).toLocaleString():'—'}</span></div>
+        <div class="info-item"><span class="il">單價（USD）</span>${nu(o.unit_price)}</div>
+        <div class="info-item"><span class="il">訂單金額（USD）</span>${nu(o.order_amount_usd)}</div>
+      </div>
+    </div>
+    <div class="info-group">
+      <div class="info-group-title">第二階段：出貨資料</div>
+      <div class="info-grid">
+        <div class="info-item"><span class="il">送貨單號</span>${iv(o.shipping_notice_no)}</div>
+        <div class="info-item"><span class="il">ETC 發票日期</span>${dt(o.etc_invoice_date)}</div>
+        <div class="info-item"><span class="il">交易日期</span>${dt(o.shipping_date)}</div>
+        <div class="info-item"><span class="il">實際數量</span><span class="iv${!o.actual_qty?' empty':''}">${o.actual_qty!=null?Number(o.actual_qty).toLocaleString():'—'}</span></div>
+        <div class="info-item"><span class="il">實際金額（USD）</span>${nu(o.actual_amount_usd)}</div>
+      </div>
+    </div>
+    <div class="info-group">
+      <div class="info-group-title">第三階段：進口資料</div>
+      <div class="info-grid">
+        <div class="info-item"><span class="il">ETA（預計到港日）</span>${dt(o.eta)}</div>
+        <div class="info-item"><span class="il">貨代清關日期</span>${dt(o.customs_agent_date)}</div>
+        <div class="info-item"><span class="il">報關費（NTD）</span>${ni(o.customs_fee)}</div>
+        <div class="info-item"><span class="il">推貿費（NTD）</span>${ni(o.trade_promotion_fee)}</div>
+        <div class="info-item"><span class="il">客戶簽收日期</span>${dt(o.customer_signed_date)}</div>
+        <div class="info-item"><span class="il">對帳單日期</span>${dt(o.monthly_statement_date)}</div>
+        <div class="info-item"><span class="il">轉進貨單日期</span>${dt(o.transfer_receipt_date)}</div>
+        <div class="info-item"><span class="il">入庫日期</span>${dt(o.warehouse_in_date)}</div>
+        <div class="info-item"><span class="il">扣帳日期</span>${dt(o.deduction_date)}</div>
+      </div>
+    </div>
+    <div class="info-group">
+      <div class="info-group-title">第四階段：收款資料</div>
+      <div class="info-grid">
+        <div class="info-item"><span class="il">KTS 貨款入帳日</span>${dt(o.kts_payment_date)}</div>
+        <div class="info-item"><span class="il">KTS 入帳金額（USD）</span>${nu(o.kts_payment_amount_usd)}</div>
+        <div class="info-item"><span class="il">TL 支付深南日期</span>${dt(o.tl_payment_date)}</div>
+      </div>
+    </div>
+    <div class="info-group" style="margin-bottom:0">
+      <div class="info-group-title">系統資訊</div>
+      <div class="info-grid">
+        <div class="info-item"><span class="il">建立時間</span><span class="iv">${o.created_at?new Date(o.created_at).toLocaleString('zh-TW'):'—'}</span></div>
+        <div class="info-item"><span class="il">最後更新</span><span class="iv">${o.updated_at?new Date(o.updated_at).toLocaleString('zh-TW'):'—'}</span></div>
+      </div>
+    </div>`;
+  g('modal').classList.add('open');
+}
+function closeModal(){g('modal').classList.remove('open');}
+function closeModalBg(e){if(e.target===g('modal'))closeModal();}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
 
-  const imported = data.filter(o => o.eta);
-  const pending = data.filter(o => !o.eta);
-  const totalUSD = data.reduce((s,o) => s + (parseFloat(o.amount_usd)||0), 0);
-  const importedUSD = imported.reduce((s,o) => s + (parseFloat(o.amount_usd)||0), 0);
-  const pendingUSD = pending.reduce((s,o) => s + (parseFloat(o.amount_usd)||0), 0);
-  const totalImportCost = imported.reduce((s,o) => s + (o.customs_fee||0) + (o.trade_promotion_fee||0), 0);
-  const totalCommission = imported.reduce((s,o) => s + (parseFloat(o.amount_usd)||0)*30*0.03, 0);
-  const ratio = importedUSD > 0 ? (totalImportCost / (importedUSD * 30) * 100) : 0;
-
-  document.getElementById('range-label').textContent =
-    '統計日期區間：' + (fromVal||'全部') + (toVal?' ～ '+toVal:'') + '　共 ' + data.length + ' 筆';
-  document.getElementById('s-count').textContent = data.length;
-  document.getElementById('s-count-sub').textContent = '已進口 '+imported.length+' 筆 / 待進口 '+pending.length+' 筆';
-  document.getElementById('s-total-usd').textContent = fmtUSD(totalUSD);
-  document.getElementById('s-imported-usd').textContent = fmtUSD(importedUSD);
-  document.getElementById('s-pending-usd').textContent = fmtUSD(pendingUSD);
-  document.getElementById('s-commission').textContent = fmtNTD(totalCommission);
-  document.getElementById('s-import-cost').textContent = fmtNTD(totalImportCost);
-  document.getElementById('s-import-ratio').textContent = '進口費/已進口金額 ' + ratio.toFixed(2) + '%';
-
-  document.getElementById('detail-tbody').innerHTML = data.length === 0
-    ? '<tr><td colspan="10" class="empty">此區間內無訂單資料</td></tr>'
-    : data.map((o,i) => {
-        const importCost = (o.customs_fee||0)+(o.trade_promotion_fee||0);
-        const commission = (parseFloat(o.amount_usd)||0)*30*0.03;
-        return `<tr>
-          <td>${i+1}</td><td><strong>${o.po_number}</strong></td>
-          <td class="num">${fmtUSD(parseFloat(o.amount_usd)||0)}</td>
-          <td>${fmt(o.etd)}</td><td>${fmt(o.eta)}</td>
-          <td class="num">${o.customs_fee ? fmtNTD(o.customs_fee) : '—'}</td>
-          <td class="num">${o.trade_promotion_fee ? fmtNTD(o.trade_promotion_fee) : '—'}</td>
-          <td class="num">${importCost ? fmtNTD(importCost) : '—'}</td>
-          <td class="num">${fmtNTD(commission)}</td>
-          <td><span class="badge ${o.eta?'badge-done':'badge-pending'}">${o.eta?'已進口':'待進口'}</span></td>
-        </tr>`;
-      }).join('');
-
-  const monthMap = {};
-  data.forEach(o => {
-    if (!o.etd) return;
-    const key = o.etd.slice(0,7);
-    if (!monthMap[key]) monthMap[key] = {count:0,usd:0,importedUSD:0,importCost:0,commission:0};
-    monthMap[key].count++;
-    monthMap[key].usd += parseFloat(o.amount_usd)||0;
-    if (o.eta) {
-      monthMap[key].importedUSD += parseFloat(o.amount_usd)||0;
-      monthMap[key].importCost += (o.customs_fee||0)+(o.trade_promotion_fee||0);
-      monthMap[key].commission += (parseFloat(o.amount_usd)||0)*30*0.03;
-    }
-  });
-  document.getElementById('monthly-tbody').innerHTML = Object.keys(monthMap).sort().map(k => {
-    const m = monthMap[k];
-    return `<tr>
-      <td><strong>${k}</strong></td><td class="num">${m.count}</td>
-      <td class="num">${fmtUSD(m.usd)}</td><td class="num">${fmtUSD(m.importedUSD)}</td>
-      <td class="num">${m.importCost?fmtNTD(m.importCost):'—'}</td>
-      <td class="num">${fmtNTD(m.commission)}</td>
-    </tr>`;
-  }).join('');
-
-  document.getElementById('result-section').style.display = 'block';
+// ── EXPORT EXCEL ──
+function exportExcel(){
+  if(!allOrders.length){toast('目前沒有資料可匯出','info');return;}
+  const headers=['PO號碼','訂單日期','訂單數量','單價USD','訂單金額USD','ETD','ETC發票日期','送貨單號','交易日期',
+    '實際數量','實際金額USD','ETA','貨代清關日期','報關費NTD','推貿費NTD','客戶簽收日期','對帳單日期',
+    '轉進貨單日期','入庫日期','扣帳日期','KTS貨款入帳日','KTS入帳金額USD','TL支付深南日期','狀態','建立時間'];
+  const smap=['','已建立','已出貨','已進口','已結清'];
+  const rows=allOrders.map(o=>[
+    o.po_number||'',o.order_date||'',o.order_qty||'',o.unit_price||'',o.order_amount_usd||'',
+    o.etd||'',o.etc_invoice_date||'',o.shipping_notice_no||'',o.shipping_date||'',o.actual_qty||'',o.actual_amount_usd||'',
+    o.eta||'',o.customs_agent_date||'',o.customs_fee||'',o.trade_promotion_fee||'',
+    o.customer_signed_date||'',o.monthly_statement_date||'',o.transfer_receipt_date||'',
+    o.warehouse_in_date||'',o.deduction_date||'',o.kts_payment_date||'',
+    o.kts_payment_amount_usd||'',o.tl_payment_date||'',smap[o.stage]||'',
+    o.created_at?new Date(o.created_at).toLocaleString('zh-TW'):''
+  ]);
+  const ws=XLSX.utils.aoa_to_sheet([headers,...rows]);
+  // Column widths
+  ws['!cols']=headers.map((_,i)=>({wch:i===0?20:i===23?20:14}));
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'訂單資料');
+  const date=new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb,`訂單管控_${date}.xlsx`);
+  toast(`已匯出 ${allOrders.length} 筆訂單`,'ok');
 }
 
-function switchTab(t, el) {
-  document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
-  el.classList.add('active');
-  document.getElementById('tab-detail').style.display = t==='detail'?'block':'none';
-  document.getElementById('tab-monthly').style.display = t==='monthly'?'block':'none';
-}
+// ── INIT ──
+document.addEventListener('DOMContentLoaded',()=>{
+  const u=sessionStorage.getItem('u');
+  if(u&&USERS[u]){
+    CU=u;
+    g('login-screen').style.display='none';
+    g('app-screen').style.display='block';
+    g('tb-user').textContent=u;
+    loadOrders();
+  }
+});
 </script>
 </body>
 </html>
