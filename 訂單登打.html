@@ -603,18 +603,14 @@ async function saveS1(){
   setBtnLoad('bs1',true,'儲存中...');
   const payload={
     po_number:po,
-    order_date:g('f1-od').value||null,
     etd:g('f1-etd').value||null,
-    order_qty:parseFloat(g('f1-qty').value)||null,
-    unit_price:parseFloat(g('f1-up').value)||null,
-    order_amount_usd:parseFloat(g('f1-amt').value)||null,
-    stage:1
+    amount_usd:parseFloat(g('f1-amt').value)||null
   };
   try{
-    const {data:ex}=await db.from('orders').select('id,stage').eq('po_number',po).maybeSingle();
-    if(ex){
-      const upd={...payload,stage:Math.max(ex.stage,1),updated_at:now()};
-      const {error}=await db.from('orders').update(upd).eq('id',ex.id);
+    const {data:ex}=await db.from('orders').select('id').eq('po_number',po).order('created_at',{ascending:false}).limit(1);
+    const firstEx=ex&&ex.length>0?ex[0]:null;
+    if(firstEx){
+      const {error}=await db.from('orders').update({...payload,updated_at:now()}).eq('id',firstEx.id);
       if(error) throw error;
       toast(`PO ${po} 已更新`,'ok');
     } else {
@@ -652,12 +648,7 @@ async function saveS2(){
   if(!sel[2]){ toast('請先選擇訂單','err'); return; }
   setBtnLoad('bs2',true,'儲存中...');
   const payload={
-    shipping_notice_no:g('f2-sn').value||null,
     etc_invoice_date:g('f2-eid').value||null,
-    shipping_date:g('f2-sd').value||null,
-    actual_qty:parseFloat(g('f2-aq').value)||null,
-    actual_amount_usd:parseFloat(g('f2-aa').value)||null,
-    stage:Math.max(sel[2].stage||1,2),
     updated_at:now()
   };
   try{
@@ -685,7 +676,6 @@ async function saveS3(){
     transfer_receipt_date:g('f3-trd').value||null,
     warehouse_in_date:g('f3-wid').value||null,
     deduction_date:g('f3-dd').value||null,
-    stage:Math.max(sel[3].stage||1,3),
     updated_at:now()
   };
   try{
@@ -705,9 +695,7 @@ async function saveS4(){
   setBtnLoad('bs4',true,'儲存中...');
   const payload={
     kts_payment_date:g('f4-kd').value||null,
-    kts_payment_amount_usd:parseFloat(g('f4-ka').value)||null,
     tl_payment_date:g('f4-tld').value||null,
-    stage:Math.max(sel[4].stage||1,4),
     updated_at:now()
   };
   try{
@@ -732,7 +720,7 @@ async function runSearch(n){
   const dd=g(`dd${n}`);
   if(!q){ dd.style.display='none'; return; }
   const {data,error}=await db.from('orders')
-    .select('id,po_number,order_date,etd,order_amount_usd,unit_price,stage')
+    .select('id,po_number,etd,amount_usd,etc_invoice_date,eta,tl_payment_date')
     .ilike('po_number',`%${q}%`)
     .order('created_at',{ascending:false}).limit(10);
   if(error||!data?.length){
@@ -740,18 +728,19 @@ async function runSearch(n){
     dd.style.display='block'; return;
   }
   const lb=['','已建立','已出貨','已進口','已結清'];
-  dd.innerHTML=data.map(o=>`
-    <div class="si-item" onclick="selOrder(${n},'${o.id}')">
+  dd.innerHTML=data.map(o=>{
+    const st=o.tl_payment_date?4:o.eta?3:o.etc_invoice_date?2:1;
+    return`
+    <div class="si-item" onclick="selOrder(${n},${o.id})">
       <div>
         <div class="po">${o.po_number}</div>
         <div class="meta">
-          ${o.order_date?`訂單日期：${fmtDate(o.order_date)}`:''}
-          ${o.etd?` | ETD：${fmtDate(o.etd)}`:''}
-          ${o.order_amount_usd?` | USD ${(+o.order_amount_usd).toLocaleString()}`:''}
+          ${o.etd?`ETD：${fmtDate(o.etd)}`:''}
+          ${o.amount_usd?` | USD ${(+o.amount_usd).toLocaleString()}`:''}
         </div>
       </div>
-      <span class="bdg b${o.stage}">${lb[o.stage]||''}</span>
-    </div>`).join('');
+      <span class="bdg b${st}">${lb[st]||''}</span>
+    </div>`}).join('');
   dd.style.display='block';
 }
 async function selOrder(n, id){
@@ -764,13 +753,9 @@ async function selOrder(n, id){
   ob.style.display='flex';
   g(`ob${n}-po`).textContent=data.po_number;
   g(`ob${n}-sub`).textContent=
-    `訂單日：${fmtDate(data.order_date)} | ETD：${fmtDate(data.etd)} | 金額：USD ${data.order_amount_usd?(+data.order_amount_usd).toLocaleString():'-'}`;
+    `ETD：${fmtDate(data.etd)} | 金額：USD ${data.amount_usd?(+data.amount_usd).toLocaleString():'-'}`;
   if(n===2){
-    g('f2-sn').value=data.shipping_notice_no||'';
     g('f2-eid').value=data.etc_invoice_date||'';
-    g('f2-sd').value=data.shipping_date||'';
-    g('f2-aq').value=data.actual_qty||'';
-    g('f2-aa').value=data.actual_amount_usd||'';
     setRO(2,true);
   } else if(n===3){
     g('f3-eta').value=data.eta||'';
@@ -785,7 +770,6 @@ async function selOrder(n, id){
     setRO(3,true);
   } else if(n===4){
     g('f4-kd').value=data.kts_payment_date||'';
-    g('f4-ka').value=data.kts_payment_amount_usd||'';
     g('f4-tld').value=data.tl_payment_date||'';
     setRO(4,true);
   }
@@ -842,13 +826,9 @@ const COL_MAP={
   '訂單日期':'order_date','order_date':'order_date','date':'order_date',
   '訂單數量':'order_qty','order_qty':'order_qty','qty':'order_qty','quantity':'order_qty',
   '單價':'unit_price','unit_price':'unit_price','price':'unit_price',
-  '訂單金額usd':'order_amount_usd','order_amount_usd':'order_amount_usd','amount_usd':'order_amount_usd','訂單金額':'order_amount_usd',
+  '訂單金額usd':'amount_usd','order_amount_usd':'amount_usd','amount_usd':'amount_usd','訂單金額':'amount_usd',
   'etd':'etd',
   'etc發票日期':'etc_invoice_date','etc_invoice_date':'etc_invoice_date','發票日期':'etc_invoice_date',
-  '送貨單號':'shipping_notice_no','shipping_notice_no':'shipping_notice_no',
-  '交易日期':'shipping_date','shipping_date':'shipping_date','出貨日期':'shipping_date',
-  '實際數量':'actual_qty','actual_qty':'actual_qty',
-  '實際金額usd':'actual_amount_usd','actual_amount_usd':'actual_amount_usd','實際金額':'actual_amount_usd',
   'eta':'eta',
   '貨代清關日期':'customs_agent_date','customs_agent_date':'customs_agent_date',
   '報關費':'customs_fee','customs_fee':'customs_fee','報關費ntd':'customs_fee',
@@ -859,12 +839,10 @@ const COL_MAP={
   '入庫日期':'warehouse_in_date','warehouse_in_date':'warehouse_in_date',
   '扣帳日期':'deduction_date','deduction_date':'deduction_date',
   'kts入帳日':'kts_payment_date','kts_payment_date':'kts_payment_date','kts貨款入帳日':'kts_payment_date',
-  'kts入帳金額usd':'kts_payment_amount_usd','kts_payment_amount_usd':'kts_payment_amount_usd','kts入帳金額':'kts_payment_amount_usd',
-  'tl支付深南日期':'tl_payment_date','tl_payment_date':'tl_payment_date','tl支付日期':'tl_payment_date',
-  '狀態':'stage','stage':'stage'
+  'tl支付深南日期':'tl_payment_date','tl_payment_date':'tl_payment_date','tl支付日期':'tl_payment_date'
 };
-const DATE_FIELDS=new Set(['order_date','etd','etc_invoice_date','shipping_date','eta','customs_agent_date','customer_signed_date','monthly_statement_date','transfer_receipt_date','warehouse_in_date','deduction_date','kts_payment_date','tl_payment_date']);
-const NUM_FIELDS=new Set(['order_qty','unit_price','order_amount_usd','actual_qty','actual_amount_usd','customs_fee','trade_promotion_fee','kts_payment_amount_usd','stage']);
+const DATE_FIELDS=new Set(['etd','etc_invoice_date','eta','customs_agent_date','customer_signed_date','monthly_statement_date','transfer_receipt_date','warehouse_in_date','deduction_date','kts_payment_date','tl_payment_date']);
+const NUM_FIELDS=new Set(['amount_usd','customs_fee','trade_promotion_fee']);
 
 let impData=[];
 
@@ -918,14 +896,12 @@ async function handleImportFile(file){
 
 function renderImportPreview(){
   if(!impData.length) return;
-  const cols=['po_number','order_date','etd','etc_invoice_date','order_amount_usd','stage','eta','customs_fee'];
-  const labels={'po_number':'PO號碼','order_date':'訂單日期','etd':'ETD','etc_invoice_date':'ETC發票日','order_amount_usd':'金額USD','stage':'狀態','eta':'ETA','customs_fee':'報關費'};
+  const cols=['po_number','etd','etc_invoice_date','amount_usd','eta','customs_fee','kts_payment_date','tl_payment_date'];
+  const labels={'po_number':'PO號碼','etd':'ETD','etc_invoice_date':'ETC發票日','amount_usd':'金額USD','eta':'ETA','customs_fee':'報關費','kts_payment_date':'KTS入帳日','tl_payment_date':'TL付款日'};
   g('imp-count').textContent=`共 ${impData.length} 筆資料`;
   g('imp-thead').innerHTML='<tr>'+cols.map(c=>`<th style="padding:8px 10px;text-align:left;font-size:.72rem;color:var(--mu);text-transform:uppercase;white-space:nowrap">${labels[c]||c}</th>`).join('')+'</tr>';
-  const SL=['','已建立','已出貨','已進口','已結清'];
   g('imp-tbody').innerHTML=impData.slice(0,50).map(r=>'<tr>'+cols.map(c=>{
-    let v=r[c];
-    if(c==='stage') v=SL[v]||v||'';
+    const v=r[c];
     return `<td style="padding:7px 10px;border-bottom:1px solid var(--border);white-space:nowrap">${v??''}</td>`;
   }).join('')+'</tr>').join('');
   if(impData.length>50){
@@ -949,7 +925,7 @@ async function doImport(){
   for(let i=0;i<impData.length;i+=BATCH){
     const batch=impData.slice(i,i+BATCH);
     try{
-      const {error}=await db.from('orders').upsert(batch,{onConflict:'po_number,etd',ignoreDuplicates:false});
+      const {error}=await db.from('orders').insert(batch);
       if(error){fail+=batch.length;errs.push(error.message);}
       else ok+=batch.length;
     } catch(e){fail+=batch.length;errs.push(e.message);}
