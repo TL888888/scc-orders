@@ -227,12 +227,12 @@ body{font-family:'Segoe UI','Microsoft JhengHei',Arial,sans-serif;background:var
           <thead>
             <tr>
               <th>PO 號碼</th>
-              <th>訂單日期</th>
               <th>ETD</th>
-              <th>訂單數量</th>
+              <th>ETC 發票日期</th>
               <th>訂單金額 USD</th>
-              <th>實際金額 USD</th>
+              <th>報關費 NTD</th>
               <th>ETA</th>
+              <th>TL 付款日</th>
               <th>狀態</th>
               <th></th>
             </tr>
@@ -281,6 +281,12 @@ function toast(msg,type='info'){
 function fmtD(s){return s?s.replace(/-/g,'/'):'—'}
 function fmtN(v,dec=2){return v!=null&&v!==''?Number(v).toLocaleString('zh-TW',{minimumFractionDigits:dec,maximumFractionDigits:dec}):'—'}
 function fmtNI(v){return v!=null&&v!==''?Math.round(Number(v)).toLocaleString('zh-TW'):'—'}
+function calcStage(o){
+  if(o.tl_payment_date) return 4;
+  if(o.eta) return 3;
+  if(o.etc_invoice_date) return 2;
+  return 1;
+}
 
 // ── AUTH ──
 function doLogin(){
@@ -319,9 +325,9 @@ function clearFilter(){
 // ── DASHBOARD ──
 function renderDash(){
   const total=allOrders.length;
-  const imported=allOrders.filter(o=>o.stage>=3).length;
-  const amt=allOrders.reduce((s,o)=>s+(+o.order_amount_usd||0),0);
-  const iamt=allOrders.filter(o=>o.stage>=3).reduce((s,o)=>s+(+o.actual_amount_usd||0),0);
+  const imported=allOrders.filter(o=>calcStage(o)>=3).length;
+  const amt=allOrders.reduce((s,o)=>s+(+o.amount_usd||0),0);
+  const iamt=allOrders.filter(o=>calcStage(o)>=3).reduce((s,o)=>s+(+o.amount_usd||0),0);
   const comm=amt*30*0.03;
   const fee=allOrders.reduce((s,o)=>s+(+o.customs_fee||0)+(+o.trade_promotion_fee||0),0);
   g('kpi-total').textContent=total.toLocaleString();
@@ -341,54 +347,42 @@ function renderTable(){
     body.innerHTML='<tr><td colspan="9"><div class="empty-state"><div class="ei">📭</div><p>目前沒有符合條件的訂單</p></div></td></tr>';
     return;
   }
-  body.innerHTML=allOrders.map(o=>`
+  body.innerHTML=allOrders.map(o=>{const st=calcStage(o);return`
     <tr>
       <td><strong>${o.po_number||'—'}</strong></td>
-      <td>${fmtD(o.order_date)}</td>
       <td>${fmtD(o.etd)}</td>
-      <td>${o.order_qty?Number(o.order_qty).toLocaleString():'—'}</td>
-      <td>${o.order_amount_usd?'$'+fmtN(o.order_amount_usd):'—'}</td>
-      <td>${o.actual_amount_usd?'$'+fmtN(o.actual_amount_usd):'—'}</td>
+      <td>${fmtD(o.etc_invoice_date)}</td>
+      <td>${o.amount_usd?'$'+fmtN(o.amount_usd):'—'}</td>
+      <td>${o.customs_fee!=null?fmtNI(o.customs_fee):'—'}</td>
       <td>${fmtD(o.eta)}</td>
-      <td><span class="bdg b${o.stage}">${SL[o.stage]||''}</span></td>
-      <td><button class="btn btn-out btn-sm" onclick="openDetail('${o.id}')">詳情</button></td>
-    </tr>`).join('');
+      <td>${fmtD(o.tl_payment_date)}</td>
+      <td><span class="bdg b${st}">${SL[st]||''}</span></td>
+      <td><button class="btn btn-out btn-sm" onclick="openDetail(${o.id})">詳情</button></td>
+    </tr>`}).join('');
 }
 
 // ── MODAL ──
 function openDetail(id){
-  const o=allOrders.find(x=>x.id===id);
+  const o=allOrders.find(x=>x.id===+id);
   if(!o) return;
+  const st=calcStage(o);
   g('modal-title').textContent=`PO：${o.po_number||'—'}`;
-  g('modal-badge').innerHTML=`<span class="bdg b${o.stage}">${SL[o.stage]||''}</span>`;
-  const iv=(v,num)=>`<span class="iv${(!v&&v!==0)?' empty':''}">${(!v&&v!==0)?'—':num?fmtN(v):typeof v==='number'?v:v}</span>`;
+  g('modal-badge').innerHTML=`<span class="bdg b${st}">${SL[st]||''}</span>`;
   const dt=v=>`<span class="iv${!v?' empty':''}">${v?fmtD(v):'—'}</span>`;
-  const nu=v=>`<span class="iv${!v?' empty':''}">${v!=null&&v!==''?fmtN(v):'—'}</span>`;
-  const ni=v=>`<span class="iv${!v?' empty':''}">${v!=null&&v!==''?fmtNI(v):'—'}</span>`;
+  const nu=v=>`<span class="iv${(!v&&v!==0)?' empty':''}">${(v!=null&&v!=='')?fmtN(v):'—'}</span>`;
+  const ni=v=>`<span class="iv${(!v&&v!==0)?' empty':''}">${(v!=null&&v!=='')?fmtNI(v):'—'}</span>`;
   g('modal-body').innerHTML=`
     <div class="info-group">
-      <div class="info-group-title">第一階段：訂單資料</div>
+      <div class="info-group-title">訂單資料</div>
       <div class="info-grid">
-        <div class="info-item"><span class="il">PO 號碼</span>${iv(o.po_number)}</div>
-        <div class="info-item"><span class="il">訂單日期</span>${dt(o.order_date)}</div>
+        <div class="info-item"><span class="il">PO 號碼</span><span class="iv">${o.po_number||'—'}</span></div>
         <div class="info-item"><span class="il">ETD（預計出貨日）</span>${dt(o.etd)}</div>
-        <div class="info-item"><span class="il">訂單數量</span><span class="iv${!o.order_qty?' empty':''}">${o.order_qty!=null?Number(o.order_qty).toLocaleString():'—'}</span></div>
-        <div class="info-item"><span class="il">單價（USD）</span>${nu(o.unit_price)}</div>
-        <div class="info-item"><span class="il">訂單金額（USD）</span>${nu(o.order_amount_usd)}</div>
-      </div>
-    </div>
-    <div class="info-group">
-      <div class="info-group-title">第二階段：出貨資料</div>
-      <div class="info-grid">
-        <div class="info-item"><span class="il">送貨單號</span>${iv(o.shipping_notice_no)}</div>
         <div class="info-item"><span class="il">ETC 發票日期</span>${dt(o.etc_invoice_date)}</div>
-        <div class="info-item"><span class="il">交易日期</span>${dt(o.shipping_date)}</div>
-        <div class="info-item"><span class="il">實際數量</span><span class="iv${!o.actual_qty?' empty':''}">${o.actual_qty!=null?Number(o.actual_qty).toLocaleString():'—'}</span></div>
-        <div class="info-item"><span class="il">實際金額（USD）</span>${nu(o.actual_amount_usd)}</div>
+        <div class="info-item"><span class="il">訂單金額（USD）</span>${nu(o.amount_usd)}</div>
       </div>
     </div>
     <div class="info-group">
-      <div class="info-group-title">第三階段：進口資料</div>
+      <div class="info-group-title">進口資料</div>
       <div class="info-grid">
         <div class="info-item"><span class="il">ETA（預計到港日）</span>${dt(o.eta)}</div>
         <div class="info-item"><span class="il">貨代清關日期</span>${dt(o.customs_agent_date)}</div>
@@ -402,10 +396,9 @@ function openDetail(id){
       </div>
     </div>
     <div class="info-group">
-      <div class="info-group-title">第四階段：收款資料</div>
+      <div class="info-group-title">收款資料</div>
       <div class="info-grid">
         <div class="info-item"><span class="il">KTS 貨款入帳日</span>${dt(o.kts_payment_date)}</div>
-        <div class="info-item"><span class="il">KTS 入帳金額（USD）</span>${nu(o.kts_payment_amount_usd)}</div>
         <div class="info-item"><span class="il">TL 支付深南日期</span>${dt(o.tl_payment_date)}</div>
       </div>
     </div>
@@ -425,22 +418,21 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
 // ── EXPORT EXCEL ──
 function exportExcel(){
   if(!allOrders.length){toast('目前沒有資料可匯出','info');return;}
-  const headers=['PO號碼','訂單日期','訂單數量','單價USD','訂單金額USD','ETD','ETC發票日期','送貨單號','交易日期',
-    '實際數量','實際金額USD','ETA','貨代清關日期','報關費NTD','推貿費NTD','客戶簽收日期','對帳單日期',
-    '轉進貨單日期','入庫日期','扣帳日期','KTS貨款入帳日','KTS入帳金額USD','TL支付深南日期','狀態','建立時間'];
+  const headers=['PO號碼','訂單金額USD','ETD','ETC發票日期','ETA','貨代清關日期',
+    '報關費NTD','推貿費NTD','客戶簽收日期','對帳單日期','轉進貨單日期','入庫日期',
+    '扣帳日期','KTS貨款入帳日','TL支付深南日期','狀態','建立時間'];
   const smap=['','已建立','已出貨','已進口','已結清'];
   const rows=allOrders.map(o=>[
-    o.po_number||'',o.order_date||'',o.order_qty||'',o.unit_price||'',o.order_amount_usd||'',
-    o.etd||'',o.etc_invoice_date||'',o.shipping_notice_no||'',o.shipping_date||'',o.actual_qty||'',o.actual_amount_usd||'',
-    o.eta||'',o.customs_agent_date||'',o.customs_fee||'',o.trade_promotion_fee||'',
+    o.po_number||'',o.amount_usd||'',o.etd||'',o.etc_invoice_date||'',
+    o.eta||'',o.customs_agent_date||'',o.customs_fee!=null?o.customs_fee:'',
+    o.trade_promotion_fee!=null?o.trade_promotion_fee:'',
     o.customer_signed_date||'',o.monthly_statement_date||'',o.transfer_receipt_date||'',
     o.warehouse_in_date||'',o.deduction_date||'',o.kts_payment_date||'',
-    o.kts_payment_amount_usd||'',o.tl_payment_date||'',smap[o.stage]||'',
+    o.tl_payment_date||'',smap[calcStage(o)]||'',
     o.created_at?new Date(o.created_at).toLocaleString('zh-TW'):''
   ]);
   const ws=XLSX.utils.aoa_to_sheet([headers,...rows]);
-  // Column widths
-  ws['!cols']=headers.map((_,i)=>({wch:i===0?20:i===23?20:14}));
+  ws['!cols']=headers.map((_,i)=>({wch:i===0?20:14}));
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'訂單資料');
   const date=new Date().toISOString().slice(0,10);
