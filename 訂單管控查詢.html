@@ -282,6 +282,7 @@ function fmtD(s){return s?s.replace(/-/g,'/'):'—'}
 function fmtN(v,dec=2){return v!=null&&v!==''?Number(v).toLocaleString('zh-TW',{minimumFractionDigits:dec,maximumFractionDigits:dec}):'—'}
 function fmtNI(v){return v!=null&&v!==''?Math.round(Number(v)).toLocaleString('zh-TW'):'—'}
 function calcStage(o){
+  if(o.stage) return o.stage;
   if(o.tl_payment_date) return 4;
   if(o.eta) return 3;
   if(o.etc_invoice_date) return 2;
