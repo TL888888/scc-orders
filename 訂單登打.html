@@ -604,13 +604,15 @@ async function saveS1(){
   const payload={
     po_number:po,
     etd:g('f1-etd').value||null,
-    amount_usd:parseFloat(g('f1-amt').value)||null
+    amount_usd:parseFloat(g('f1-amt').value)||null,
+    stage:1
   };
   try{
-    const {data:ex}=await db.from('orders').select('id').eq('po_number',po).order('created_at',{ascending:false}).limit(1);
+    const {data:ex}=await db.from('orders').select('id,stage').eq('po_number',po).order('created_at',{ascending:false}).limit(1);
     const firstEx=ex&&ex.length>0?ex[0]:null;
     if(firstEx){
-      const {error}=await db.from('orders').update({...payload,updated_at:now()}).eq('id',firstEx.id);
+      const upd={...payload,stage:Math.max(firstEx.stage||1,1),updated_at:now()};
+      const {error}=await db.from('orders').update(upd).eq('id',firstEx.id);
       if(error) throw error;
       toast(`PO ${po} 已更新`,'ok');
     } else {
@@ -649,6 +651,7 @@ async function saveS2(){
   setBtnLoad('bs2',true,'儲存中...');
   const payload={
     etc_invoice_date:g('f2-eid').value||null,
+    stage:Math.max(sel[2].stage||1,2),
     updated_at:now()
   };
   try{
@@ -676,6 +679,7 @@ async function saveS3(){
     transfer_receipt_date:g('f3-trd').value||null,
     warehouse_in_date:g('f3-wid').value||null,
     deduction_date:g('f3-dd').value||null,
+    stage:Math.max(sel[3].stage||1,3),
     updated_at:now()
   };
   try{
@@ -696,6 +700,7 @@ async function saveS4(){
   const payload={
     kts_payment_date:g('f4-kd').value||null,
     tl_payment_date:g('f4-tld').value||null,
+    stage:Math.max(sel[4].stage||1,4),
     updated_at:now()
   };
   try{
@@ -720,7 +725,7 @@ async function runSearch(n){
   const dd=g(`dd${n}`);
   if(!q){ dd.style.display='none'; return; }
   const {data,error}=await db.from('orders')
-    .select('id,po_number,etd,amount_usd,etc_invoice_date,eta,tl_payment_date')
+    .select('id,po_number,etd,amount_usd,etc_invoice_date,eta,tl_payment_date,stage')
     .ilike('po_number',`%${q}%`)
     .order('created_at',{ascending:false}).limit(10);
   if(error||!data?.length){
@@ -729,7 +734,7 @@ async function runSearch(n){
   }
   const lb=['','已建立','已出貨','已進口','已結清'];
   dd.innerHTML=data.map(o=>{
-    const st=o.tl_payment_date?4:o.eta?3:o.etc_invoice_date?2:1;
+    const st=o.stage||(o.tl_payment_date?4:o.eta?3:o.etc_invoice_date?2:1);
     return`
     <div class="si-item" onclick="selOrder(${n},${o.id})">
       <div>
