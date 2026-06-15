@@ -150,6 +150,21 @@ body{font-family:'Segoe UI','Microsoft JhengHei',Arial,sans-serif;background:var
 .actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:24px;
   padding-top:20px;border-top:1px solid var(--border)}
 
+/* S4 billing table */
+.s4-summary{background:var(--pri-bg);border:1.5px solid #bfdbfe;border-radius:10px;
+  padding:14px 18px;margin:16px 0;font-size:.9rem}
+.s4-summary strong{color:var(--pri);font-size:1rem}
+.tbl-s4{width:100%;border-collapse:collapse;font-size:.85rem}
+.tbl-s4 th{background:#f8fafc;padding:10px 14px;text-align:left;font-size:.75rem;font-weight:700;
+  color:var(--mu);text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid var(--border);white-space:nowrap}
+.tbl-s4 td{padding:11px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
+.tbl-s4 tr:last-child td{border-bottom:none}
+.tbl-s4 tr:hover td{background:#fafafa}
+.mode-tabs{display:flex;gap:8px;margin-bottom:20px}
+.mode-tab{padding:8px 20px;border-radius:8px;border:1.5px solid var(--border);background:#fff;
+  font-size:.85rem;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s;color:var(--mu)}
+.mode-tab.active{background:var(--pri);color:#fff;border-color:var(--pri)}
+
 /* TOAST */
 #tc{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;max-width:360px}
 .toast{padding:14px 18px;border-radius:12px;font-size:.875rem;font-weight:600;
@@ -173,34 +188,19 @@ body{font-family:'Segoe UI','Microsoft JhengHei',Arial,sans-serif;background:var
   .card-hd{flex-wrap:wrap;gap:8px}
 }
 @media(max-width:480px){
-  /* Login */
   .login-box{padding:32px 20px;margin:0 16px;width:calc(100% - 32px)}
-
-  /* Topbar */
   .topbar{padding:0 12px}
   #tb-user{display:none}
-
-  /* Stage nav — tighter tabs */
   .stage-nav{padding:0 4px}
   .snb{padding:12px 10px;font-size:.78rem;gap:5px}
   .snb .num{width:20px;height:20px;font-size:.7rem}
-
-  /* Form inputs — 16px prevents iOS auto-zoom on focus */
   .field input,.field select,.si{font-size:16px!important;padding:12px 13px}
   .lf input{font-size:16px}
-
-  /* Drop zone */
   .dz{padding:28px 16px}
   .dz-icon{font-size:2rem}
-
-  /* Action buttons — each takes equal share of row */
   .actions{gap:8px}
   .actions>.btn{flex:1;min-height:48px}
-
-  /* Search dropdown items */
   .si-item{padding:14px 16px}
-
-  /* Toast — full width */
   #tc{left:12px;right:12px;max-width:none;bottom:16px}
 }
 </style>
@@ -235,7 +235,7 @@ body{font-family:'Segoe UI','Microsoft JhengHei',Arial,sans-serif;background:var
     <button class="snb active" data-s="1" onclick="switchStage(1)"><span class="num">1</span>訂單資料</button>
     <button class="snb" data-s="2" onclick="switchStage(2)"><span class="num">2</span>出貨資料</button>
     <button class="snb" data-s="3" onclick="switchStage(3)"><span class="num">3</span>進口資料</button>
-    <button class="snb" data-s="4" onclick="switchStage(4)"><span class="num">4</span>收款資料</button>
+    <button class="snb" data-s="4" onclick="switchStage(4)"><span class="num">4</span>應收帳款</button>
     <button class="snb" data-s="5" onclick="switchStage(5)"><span class="num">📥</span>批次匯入</button>
   </nav>
 
@@ -262,7 +262,7 @@ body{font-family:'Segoe UI','Microsoft JhengHei',Arial,sans-serif;background:var
         <div class="fg">
           <div class="field s2">
             <label>PO 號碼 <span class="req">*</span></label>
-            <input type="text" id="f1-po" placeholder="例：PO-2024-001">
+            <input type="text" id="f1-po" placeholder="例：1459326OP">
           </div>
           <div class="field">
             <label>訂單日期</label>
@@ -310,7 +310,7 @@ body{font-family:'Segoe UI','Microsoft JhengHei',Arial,sans-serif;background:var
         <div class="obar" id="ob2">
           <div><div class="obar-po" id="ob2-po"></div><div class="obar-sub" id="ob2-sub"></div></div>
           <div style="display:flex;gap:8px">
-            <button class="btn btn-out btn-sm" onclick="enableEdit(2)">✏️ 人工修改</button>
+            <button class="btn btn-out btn-sm" id="ob2-edit" onclick="enableEdit(2)">✏️ 人工修改</button>
             <button class="btn btn-gh btn-sm" onclick="clearSel(2)">✕ 取消</button>
           </div>
         </div>
@@ -318,22 +318,27 @@ body{font-family:'Segoe UI','Microsoft JhengHei',Arial,sans-serif;background:var
         <div class="dz" id="dz2">
           <input type="file" accept=".pdf" id="fi2">
           <div class="dz-icon">📦</div>
-          <div class="dz-text">拖曳送貨單 PDF 到此處，或 <strong>點擊選擇檔案</strong><br>系統將自動擷取送貨單資料</div>
+          <div class="dz-text">拖曳送貨單 PDF 到此處，或 <strong>點擊選擇檔案</strong><br>系統將自動擷取送貨單資料並連動訂單單價</div>
           <div class="dz-fn" id="fn2"></div>
         </div>
 
         <div class="fg">
           <div class="field">
             <label>送貨單號</label>
-            <input type="text" id="f2-sn" placeholder="例：DN-2024-001">
+            <input type="text" id="f2-sn" placeholder="例：ITC260611-24">
           </div>
           <div class="field">
             <label>ETC 發票日期</label>
             <input type="date" id="f2-eid">
           </div>
           <div class="field">
-            <label>交易日期（出貨日）</label>
+            <label>ETA（交易日期）</label>
             <input type="date" id="f2-sd">
+          </div>
+          <div class="field">
+            <label>連動單價（USD）</label>
+            <input type="number" id="f2-up-ref" placeholder="由訂單帶入" step="0.0001" readonly>
+            <span class="hint">由第一階段訂單自動帶入</span>
           </div>
           <div class="field">
             <label>實際數量</label>
@@ -342,7 +347,7 @@ body{font-family:'Segoe UI','Microsoft JhengHei',Arial,sans-serif;background:var
           <div class="field">
             <label>實際金額（USD）</label>
             <input type="number" id="f2-aa" placeholder="自動計算" step="0.01" readonly>
-            <span class="hint">單價 × 實際數量自動計算</span>
+            <span class="hint">連動單價 × 實際數量自動計算</span>
           </div>
         </div>
 
@@ -362,29 +367,26 @@ body{font-family:'Segoe UI','Microsoft JhengHei',Arial,sans-serif;background:var
 
         <div class="sw">
           <span class="si-icon">🔍</span>
-          <input class="si" type="text" id="sr3" placeholder="輸入 PO 號碼搜尋..." oninput="doSearch(3)">
+          <input class="si" type="text" id="sr3" placeholder="輸入 PO 號碼搜尋（只顯示已出貨未進口訂單）..." oninput="doSearch(3)">
         </div>
         <div class="sd" id="dd3"></div>
 
         <div class="obar" id="ob3">
           <div><div class="obar-po" id="ob3-po"></div><div class="obar-sub" id="ob3-sub"></div></div>
           <div style="display:flex;gap:8px">
-            <button class="btn btn-out btn-sm" onclick="enableEdit(3)">✏️ 人工修改</button>
+            <button class="btn btn-out btn-sm" id="ob3-edit" onclick="enableEdit(3)">✏️ 人工修改</button>
             <button class="btn btn-gh btn-sm" onclick="clearSel(3)">✕ 取消</button>
           </div>
         </div>
 
         <div id="form3">
-          <div class="sdiv">基本進口資料</div>
           <div class="fg">
             <div class="field">
-              <label>ETA（預計到港日）</label>
-              <input type="date" id="f3-eta">
+              <label>ETA（交易日期）</label>
+              <input type="date" id="f3-eta" readonly>
+              <span class="hint">由第二階段自動帶入，唯讀</span>
             </div>
-            <div class="field">
-              <label>貨代清關日期</label>
-              <input type="date" id="f3-cad">
-            </div>
+            <div class="field" style="visibility:hidden"></div>
             <div class="field">
               <label>報關費（NTD）</label>
               <input type="number" id="f3-cf" placeholder="0" step="1" min="0">
@@ -393,14 +395,6 @@ body{font-family:'Segoe UI','Microsoft JhengHei',Arial,sans-serif;background:var
               <label>推貿費（NTD）</label>
               <input type="number" id="f3-tpf" placeholder="0" step="1" min="0">
             </div>
-          </div>
-          <div class="sdiv">流程日期（選填）</div>
-          <div class="fg3">
-            <div class="field"><label>客戶簽收日期</label><input type="date" id="f3-csd"></div>
-            <div class="field"><label>對帳單日期</label><input type="date" id="f3-msd"></div>
-            <div class="field"><label>轉進貨單日期</label><input type="date" id="f3-trd"></div>
-            <div class="field"><label>入庫日期</label><input type="date" id="f3-wid"></div>
-            <div class="field"><label>扣帳日期</label><input type="date" id="f3-dd"></div>
           </div>
         </div>
 
@@ -411,46 +405,76 @@ body{font-family:'Segoe UI','Microsoft JhengHei',Arial,sans-serif;background:var
       </div>
     </div>
 
-    <!-- STAGE 4 -->
+    <!-- STAGE 4: 應收帳款清單 -->
     <div class="stage-panel" id="p4">
       <div class="card">
         <div class="card-hd">
-          <div class="card-title"><div class="card-icon">💰</div>第四階段：收款資料</div>
+          <div class="card-title"><div class="card-icon">📋</div>第四階段：應收帳款清單</div>
         </div>
 
-        <div class="sw">
-          <span class="si-icon">🔍</span>
-          <input class="si" type="text" id="sr4" placeholder="輸入 PO 號碼搜尋..." oninput="doSearch(4)">
+        <div class="mode-tabs">
+          <button class="mode-tab active" id="s4-tab-quick" onclick="setS4Mode('quick')">快速模式（上個月）</button>
+          <button class="mode-tab" id="s4-tab-custom" onclick="setS4Mode('custom')">自選區間</button>
         </div>
-        <div class="sd" id="dd4"></div>
 
-        <div class="obar" id="ob4">
-          <div><div class="obar-po" id="ob4-po"></div><div class="obar-sub" id="ob4-sub"></div></div>
-          <div style="display:flex;gap:8px">
-            <button class="btn btn-out btn-sm" onclick="enableEdit(4)">✏️ 人工修改</button>
-            <button class="btn btn-gh btn-sm" onclick="clearSel(4)">✕ 取消</button>
+        <!-- 快速模式 -->
+        <div id="s4-quick">
+          <div class="fg">
+            <div class="field">
+              <label>選擇月份（自動帶出上個月 ETA 區間）</label>
+              <input type="month" id="s4-month" oninput="updateS4QuickRange()">
+            </div>
+            <div class="field" style="justify-content:flex-end;padding-bottom:2px">
+              <label>&nbsp;</label>
+              <div id="s4-range-hint" style="font-size:.8rem;color:var(--pri);font-weight:600;padding:10px 0"></div>
+            </div>
           </div>
         </div>
 
-        <div class="fg">
-          <div class="field">
-            <label>KTS 貨款入帳日</label>
-            <input type="date" id="f4-kd">
-          </div>
-          <div class="field">
-            <label>KTS 入帳金額（USD）</label>
-            <input type="number" id="f4-ka" placeholder="0.00" step="0.01" min="0">
-          </div>
-          <div class="field s2">
-            <label>TL 支付深南日期</label>
-            <input type="date" id="f4-tld">
+        <!-- 自選區間 -->
+        <div id="s4-custom" style="display:none">
+          <div class="fg">
+            <div class="field">
+              <label>起始月份</label>
+              <input type="month" id="s4-from-m">
+            </div>
+            <div class="field">
+              <label>結束月份</label>
+              <input type="month" id="s4-to-m">
+            </div>
           </div>
         </div>
 
-        <div class="actions">
-          <button class="btn btn-ok" onclick="saveS4()" id="bs4">💾 儲存收款資料</button>
-          <span id="ss4" style="font-size:.85rem;color:var(--mu)"></span>
+        <!-- PO 搜尋 + 查詢按鈕 -->
+        <div style="display:flex;gap:10px;align-items:center;margin:16px 0">
+          <div class="sw" style="flex:1;margin:0">
+            <span class="si-icon">🔍</span>
+            <input class="si" type="text" id="s4-po" placeholder="PO 號碼模糊搜尋（選填）...">
+          </div>
+          <button class="btn btn-pri" onclick="loadS4()">查詢</button>
         </div>
+
+        <!-- 摘要 -->
+        <div id="s4-summary" style="display:none" class="s4-summary"></div>
+
+        <!-- 列表 -->
+        <div style="overflow-x:auto;border:1px solid var(--border);border-radius:10px;display:none" id="s4-table-wrap">
+          <table class="tbl-s4">
+            <thead>
+              <tr>
+                <th>PO 號碼</th>
+                <th>送貨單號</th>
+                <th>ETA</th>
+                <th>數量</th>
+                <th>單價（USD）</th>
+                <th>總金額（USD）</th>
+                <th>狀態</th>
+              </tr>
+            </thead>
+            <tbody id="s4-tbody"></tbody>
+          </table>
+        </div>
+
       </div>
     </div>
 
@@ -498,7 +522,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
 
 const USERS = {'Tl3167':'tl888$$$','entry':'entry123'};
 let CU = null;
-const sel = {2:null,3:null,4:null};
+const sel = {2:null, 3:null};
 let st = {};
 
 // ── AUTH ──
@@ -547,60 +571,75 @@ async function extractText(file){
 function pdate(s){
   if(!s) return '';
   s=s.trim();
-  // YYYY/MM/DD or YYYY-MM-DD
   let m=s.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
   if(m) return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
-  // MM/DD/YYYY or M/D/YYYY
   m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
   if(m) return `${m[3]}-${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}`;
-  // MM/DD/YY (2-digit year → 20xx)
   m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2})$/);
   if(m) return `20${m[3]}-${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}`;
   return '';
 }
 function pnum(s){ return s ? (parseFloat(String(s).replace(/[^0-9.]/g,''))||'') : ''; }
 
+// ── PARSE ORDER PDF（問題1修正）──
 function parseOrder(txt){
   const r={};
   let m;
-  // PO NUMBER — "1459326 OP" → digits only
-  m=txt.match(/PO\s+NUMBER\s+(\d+)\s+OP/i)
+  // PO NUMBER — 保留 OP 字尾，例如 "1459326OP"
+  m=txt.match(/PO\s+NUMBER\s+(\d+\s*OP)\b/i)
     ||txt.match(/PO\s+NUMBER\s+(\d+)/i)
-    ||txt.match(/P\.?O\.?\s*(?:NO\.?|#|:)\s*(\d{5,})/i);
-  if(m) r.po_number=m[1].trim();
-  // ORDER DATE — MM/DD/YY or MM/DD/YYYY
+    ||txt.match(/P\.?O\.?\s*(?:NO\.?|#|:)\s*(\d{5,}(?:\s*OP)?)/i);
+  if(m) r.po_number=m[1].replace(/\s+/g,'');
+
+  // ORDER DATE
   m=txt.match(/ORDER\s+DATE\s+(\d{1,2}\/\d{1,2}\/\d{2,4})/i);
   if(m) r.order_date=pdate(m[1]);
-  // ETD — Delivery column: M/D/YYYY format follows header within 200 chars
-  m=txt.match(/\bDelivery\b[\s\S]{0,200}?(\d{1,2}\/\d{1,2}\/\d{4})/i)
-    ||txt.match(/ETD\s*:?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i);
-  if(m) r.etd=pdate(m[1]);
-  // Quantity — first comma-formatted number after "Quantity" column header
-  m=txt.match(/\bQuantity\b[\s\S]*?(\d{1,3}(?:,\d{3})+)/i);
-  if(m) r.order_qty=pnum(m[1]);
-  // Unit Price — first decimal number (2–4 places) after "Unit Price" column header
-  m=txt.match(/\bUnit\s+Price\b[\s\S]{0,400}?(\b\d+\.\d{2,4}\b)/i);
-  if(m) r.unit_price=pnum(m[1]);
-  // TOTAL AMOUNT OF ORDER — USD value after header; fallback to Extended Price column
-  m=txt.match(/TOTAL\s+AMOUNT\s+OF\s+ORDER[\s\S]*?USD\s*([\d,]+\.\d{2})/i)
-    ||txt.match(/EXTENDED\s+PRICE[\s\S]{0,200}?(\d{1,3}(?:,\d{3})*\.\d{2})/i)
-    ||txt.match(/(?:TOTAL\s+AMOUNT|ORDER\s+AMOUNT)\s*:?\s*(?:USD|US\$|\$)?\s*([\d,]+\.\d{2})/i);
-  if(m) r.order_amount_usd=pnum(m[1]);
+
+  // 訂單明細行：數量 PCS 日期 單價 總金額（一次抓四欄）
+  // 例：20,000 PCS 6/9/2026 0.9300 18,600.00
+  m=txt.match(/(\d{1,3}(?:,\d{3})*)\s+PCS\s+(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d+\.\d{2,4})\s+([\d,]+\.\d{2})/i);
+  if(m){
+    r.order_qty=pnum(m[1]);
+    r.etd=pdate(m[2]);
+    r.unit_price=parseFloat(m[3]);
+    r.order_amount_usd=pnum(m[4]);
+  }
+
+  // ETD 備用（若上方未抓到）
+  if(!r.etd){
+    m=txt.match(/\bDelivery\b[\s\S]{0,200}?(\d{1,2}\/\d{1,2}\/\d{4})/i)
+      ||txt.match(/ETD\s*:?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i);
+    if(m) r.etd=pdate(m[1]);
+  }
+
+  // 訂單金額備用
+  if(!r.order_amount_usd){
+    m=txt.match(/TOTAL\s+AMOUNT\s+OF\s+ORDER[\s\S]*?USD\s*([\d,]+\.\d{2})/i)
+      ||txt.match(/EXTENDED\s+PRICE[\s\S]{0,200}?(\d{1,3}(?:,\d{3})*\.\d{2})/i);
+    if(m) r.order_amount_usd=pnum(m[1]);
+  }
   return r;
 }
 
+// ── PARSE SHIPPING PDF（問題2修正）——TA LIANG Shipping Notice ──
 function parseShipping(txt){
   const r={};
   let m;
-  // 訂單編號 — standalone 7-digit number (not embedded in part numbers like "2025790-0V1.A00G")
-  // Chinese labels garble due to font encoding; rely on structure instead
+  // 送貨單號 — 條碼下方文字，格式 ITC260611-24
+  m=txt.match(/\b(ITC\d{6}-\d+)/i);
+  if(m) r.shipping_notice_no=m[1].toUpperCase();
+
+  // 訂單編號 — 7位數字（不接英文或破折號）
   m=txt.match(/(?<![A-Z0-9-])(\d{7})(?![A-Z0-9-])/i);
   if(m) r.po_number=m[1];
-  // 交易日期 — YYYY/M/D is the only such date format in the shipping notice
+
+  // 交易日期(=ETA) — YYYY/M/D 格式
   m=txt.match(/(\d{4}\/\d{1,2}\/\d{1,2})/);
-  if(m) r.shipping_date=pdate(m[1]);
-  // 數量 — total from "N Units" summary line; fallback to last comma-formatted number
-  m=txt.match(/(\d{1,3}(?:,\d{3})+)\s+Units/i);
+  if(m) r.eta=pdate(m[1]);
+
+  // 數量 — 帶逗號的數字 + PCS
+  m=txt.match(/(\d{1,3}(?:,\d{3})+)\s*(?:PCS|pcs)/i)
+    ||txt.match(/(\d{1,3}(?:,\d{3})+)\s+Units/i);
   if(m){
     r.actual_qty=pnum(m[1]);
   } else {
@@ -674,34 +713,80 @@ async function saveS1(){
 function calc2(){
   const q=parseFloat(g('f2-aq').value)||0;
   const p=sel[2]?(sel[2].unit_price||0):0;
+  if(p) g('f2-up-ref').value=Number(p).toFixed(4);
   if(q&&p) g('f2-aa').value=(q*p).toFixed(2);
 }
+
+// 送貨單 PDF 解析 + 自動連動訂單（問題2修正）
 async function handleFile2(file){
   if(!file||file.type!=='application/pdf'){ toast('請選擇 PDF 檔案','err'); return; }
   g('fn2').style.display='block'; g('fn2').textContent='⏳ 解析中...';
   try{
     const txt=await extractText(file);
     const d=parseShipping(txt);
-    if(d.po_number){
-      g('sr2').value=d.po_number;
-      doSearch(2);
-      toast(`找到訂單編號 ${d.po_number}，請從下拉選擇確認`,'info');
-    }
-    if(d.shipping_date){ g('f2-sd').value=d.shipping_date; g('f2-sd').classList.add('af'); }
-    if(d.actual_qty){ g('f2-aq').value=d.actual_qty; g('f2-aq').classList.add('af'); }
-    calc2();
-    const cnt=Object.values(d).filter(v=>v).length;
     g('fn2').textContent=`📎 ${file.name}`;
-    if(!d.po_number) toast(cnt>0?`擷取 ${cnt} 個欄位`:'未能自動擷取，請手動填寫', cnt>0?'ok':'info');
+
+    if(d.po_number){
+      // 搜尋資料庫，比對時忽略 OP 字尾
+      const {data,error}=await db.from('orders').select('*')
+        .ilike('po_number',`%${d.po_number}%`)
+        .order('created_at',{ascending:false}).limit(5);
+
+      if(!error && data && data.length>0){
+        // 優先找 po_number 去除OP後等於d.po_number的訂單
+        const match=data.find(o=>o.po_number.replace(/OP$/i,'')===d.po_number
+          ||o.po_number===d.po_number
+          ||o.po_number===d.po_number+'OP'
+        )||data[0];
+
+        if(match.stage===4){
+          toast(`訂單 ${match.po_number} 已結清，無法修改`,'err');
+          return;
+        }
+
+        // 自動選取訂單
+        await selOrder(2, match.id);
+
+        // 覆蓋送貨單資料（PDF優先）
+        if(d.shipping_notice_no){ g('f2-sn').value=d.shipping_notice_no; g('f2-sn').classList.add('af'); }
+        if(d.eta){ g('f2-sd').value=d.eta; g('f2-sd').classList.add('af'); }
+        if(d.actual_qty){ g('f2-aq').value=d.actual_qty; g('f2-aq').classList.add('af'); }
+
+        // 開放這三欄編輯（其餘維持readonly）
+        ['f2-sn','f2-sd','f2-aq'].forEach(id=>{ g(id).readOnly=false; });
+        calc2();
+
+        const amt=g('f2-aa').value;
+        const up=sel[2]?Number(sel[2].unit_price).toFixed(4):'?';
+        toast(`✅ 找到訂單 ${match.po_number}｜單價 ${up}｜送貨單金額 USD ${amt}，請確認後儲存`,'ok');
+      } else {
+        // 未找到，顯示下拉讓使用者手動選
+        g('sr2').value=d.po_number;
+        doSearch(2);
+        // 填入其他欄位
+        if(d.shipping_notice_no) g('f2-sn').value=d.shipping_notice_no;
+        if(d.eta) g('f2-sd').value=d.eta;
+        if(d.actual_qty) g('f2-aq').value=d.actual_qty;
+        toast(`找到送貨單號 ${d.po_number}，請從下拉選擇對應訂單確認`,'info');
+      }
+    } else {
+      // 未抓到訂單編號，填入可填欄位
+      if(d.shipping_notice_no) g('f2-sn').value=d.shipping_notice_no;
+      if(d.eta) g('f2-sd').value=d.eta;
+      if(d.actual_qty) g('f2-aq').value=d.actual_qty;
+      toast('未能自動抓取訂單編號，請手動搜尋訂單','info');
+    }
   } catch(e){ g('fn2').textContent='❌ 解析失敗'; toast('PDF解析失敗：'+e.message,'err'); }
 }
+
 async function saveS2(){
   if(!sel[2]){ toast('請先選擇訂單','err'); return; }
+  if(sel[2].stage===4){ toast('已結清訂單不可修改','err'); return; }
   setBtnLoad('bs2',true,'儲存中...');
   const payload={
     shipping_notice_no:g('f2-sn').value||null,
     etc_invoice_date:g('f2-eid').value||null,
-    shipping_date:g('f2-sd').value||null,
+    eta:g('f2-sd').value||null,
     actual_qty:parseFloat(g('f2-aq').value)||null,
     actual_amount_usd:parseFloat(g('f2-aa').value)||null,
     stage:Math.max(sel[2].stage||1,2),
@@ -721,17 +806,11 @@ async function saveS2(){
 // ── STAGE 3 ──
 async function saveS3(){
   if(!sel[3]){ toast('請先選擇訂單','err'); return; }
+  if(sel[3].stage===4){ toast('已結清訂單不可修改','err'); return; }
   setBtnLoad('bs3',true,'儲存中...');
   const payload={
-    eta:g('f3-eta').value||null,
-    customs_agent_date:g('f3-cad').value||null,
     customs_fee:parseFloat(g('f3-cf').value)||null,
     trade_promotion_fee:parseFloat(g('f3-tpf').value)||null,
-    customer_signed_date:g('f3-csd').value||null,
-    monthly_statement_date:g('f3-msd').value||null,
-    transfer_receipt_date:g('f3-trd').value||null,
-    warehouse_in_date:g('f3-wid').value||null,
-    deduction_date:g('f3-dd').value||null,
     stage:Math.max(sel[3].stage||1,3),
     updated_at:now()
   };
@@ -746,26 +825,87 @@ async function saveS3(){
   finally{ setBtnLoad('bs3',false,'💾 儲存進口資料'); }
 }
 
-// ── STAGE 4 ──
-async function saveS4(){
-  if(!sel[4]){ toast('請先選擇訂單','err'); return; }
-  setBtnLoad('bs4',true,'儲存中...');
-  const payload={
-    kts_payment_date:g('f4-kd').value||null,
-    kts_payment_amount_usd:parseFloat(g('f4-ka').value)||null,
-    tl_payment_date:g('f4-tld').value||null,
-    stage:Math.max(sel[4].stage||1,4),
-    updated_at:now()
-  };
-  try{
-    const {error}=await db.from('orders').update(payload).eq('id',sel[4].id);
-    if(error) throw error;
-    sel[4]={...sel[4],...payload};
-    toast('收款資料儲存成功','ok');
-    g('ss4').textContent=`儲存時間：${new Date().toLocaleString('zh-TW')}`;
-    setRO(4,true);
-  } catch(e){ toast('儲存失敗：'+e.message,'err'); }
-  finally{ setBtnLoad('bs4',false,'💾 儲存收款資料'); }
+// ── STAGE 4: 應收帳款清單（問題4修正）──
+let s4Mode='quick';
+
+function setS4Mode(mode){
+  s4Mode=mode;
+  g('s4-tab-quick').classList.toggle('active',mode==='quick');
+  g('s4-tab-custom').classList.toggle('active',mode==='custom');
+  g('s4-quick').style.display=mode==='quick'?'block':'none';
+  g('s4-custom').style.display=mode==='custom'?'block':'none';
+}
+
+function updateS4QuickRange(){
+  const v=g('s4-month').value;
+  if(!v){ g('s4-range-hint').textContent=''; return; }
+  const [y,mo]=v.split('-').map(Number);
+  // 上個月
+  const prev=new Date(y,mo-2,1);
+  const py=prev.getFullYear(), pm=prev.getMonth()+1;
+  const lastDay=new Date(y,mo-1,0).getDate();
+  g('s4-range-hint').textContent=`ETA 區間：${py}/${String(pm).padStart(2,'0')}/01 ~ ${py}/${String(pm).padStart(2,'0')}/${String(lastDay).padStart(2,'0')}`;
+}
+
+async function loadS4(){
+  let fromDate, toDate;
+  if(s4Mode==='quick'){
+    const v=g('s4-month').value;
+    if(!v){ toast('請選擇月份','err'); return; }
+    const [y,mo]=v.split('-').map(Number);
+    const prev=new Date(y,mo-2,1);
+    const py=prev.getFullYear(), pm=prev.getMonth()+1;
+    const lastDay=new Date(y,mo-1,0).getDate();
+    fromDate=`${py}-${String(pm).padStart(2,'0')}-01`;
+    toDate=`${py}-${String(pm).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+  } else {
+    const fm=g('s4-from-m').value, tm=g('s4-to-m').value;
+    if(!fm||!tm){ toast('請選擇起訖月份','err'); return; }
+    const [fy,fmo]=fm.split('-').map(Number);
+    const [ty,tmo]=tm.split('-').map(Number);
+    const lastDay=new Date(ty,tmo,0).getDate();
+    fromDate=`${fy}-${String(fmo).padStart(2,'0')}-01`;
+    toDate=`${ty}-${String(tmo).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+  }
+  const po=g('s4-po').value.trim();
+  let q=db.from('orders')
+    .select('id,po_number,shipping_notice_no,eta,order_qty,actual_qty,unit_price,amount_usd,actual_amount_usd,stage')
+    .lt('stage',4)
+    .gte('eta',fromDate)
+    .lte('eta',toDate)
+    .order('eta',{ascending:true});
+  if(po) q=q.ilike('po_number',`%${po}%`);
+  const {data,error}=await q;
+  if(error){ toast('查詢失敗：'+error.message,'err'); return; }
+  renderS4(data||[], fromDate, toDate);
+}
+
+function renderS4(orders, from, to){
+  const total=orders.length;
+  const totalAmt=orders.reduce((s,o)=>s+(+(o.actual_amount_usd||o.amount_usd)||0),0);
+  const sumEl=g('s4-summary');
+  sumEl.style.display='block';
+  sumEl.innerHTML=`<strong>ETA ${from.replace(/-/g,'/')} ～ ${to.replace(/-/g,'/')}</strong><br>
+    <span style="color:var(--mu)">總筆數：<strong style="color:var(--tx)">${total} 筆</strong>　應收總金額：<strong style="color:var(--ok)">USD ${totalAmt.toLocaleString('zh-TW',{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></span>`;
+  const wrap=g('s4-table-wrap');
+  if(!total){
+    wrap.style.display='none';
+    return;
+  }
+  wrap.style.display='block';
+  const SL=['','已建立','已出貨','已進口','已結清'];
+  g('s4-tbody').innerHTML=orders.map(o=>{
+    const qty=o.actual_qty||o.order_qty;
+    const amt=o.actual_amount_usd||o.amount_usd;
+    return`<tr>
+      <td><strong>${o.po_number||'—'}</strong></td>
+      <td>${o.shipping_notice_no||'—'}</td>
+      <td>${fmtDate(o.eta)}</td>
+      <td>${qty?Number(qty).toLocaleString('zh-TW'):'—'}</td>
+      <td>${o.unit_price!=null?Number(o.unit_price).toFixed(4):'—'}</td>
+      <td>${amt!=null?'$'+Number(amt).toLocaleString('zh-TW',{minimumFractionDigits:2,maximumFractionDigits:2}):'—'}</td>
+      <td><span class="bdg b${o.stage}">${SL[o.stage]||''}</span></td>
+    </tr>`;}).join('');
 }
 
 // ── SEARCH ──
@@ -778,10 +918,13 @@ async function runSearch(n){
   const q=g(`sr${n}`).value.trim();
   const dd=g(`dd${n}`);
   if(!q){ dd.style.display='none'; return; }
-  const {data,error}=await db.from('orders')
-    .select('id,po_number,etd,amount_usd,etc_invoice_date,eta,tl_payment_date,stage')
+  let query=db.from('orders')
+    .select('id,po_number,etd,eta,amount_usd,etc_invoice_date,tl_payment_date,stage')
     .ilike('po_number',`%${q}%`)
     .order('created_at',{ascending:false}).limit(10);
+  // 問題3：第三階段只顯示 stage=2 的訂單
+  if(n===3) query=query.eq('stage',2);
+  const {data,error}=await query;
   if(error||!data?.length){
     dd.innerHTML='<div style="padding:16px;color:var(--mu);text-align:center;font-size:.875rem">找不到符合訂單</div>';
     dd.style.display='block'; return;
@@ -795,6 +938,7 @@ async function runSearch(n){
         <div class="po">${o.po_number}</div>
         <div class="meta">
           ${o.etd?`ETD：${fmtDate(o.etd)}`:''}
+          ${o.eta?` | ETA：${fmtDate(o.eta)}`:''}
           ${o.amount_usd?` | USD ${(+o.amount_usd).toLocaleString()}`:''}
         </div>
       </div>
@@ -802,6 +946,7 @@ async function runSearch(n){
     </div>`}).join('');
   dd.style.display='block';
 }
+
 async function selOrder(n, id){
   const {data,error}=await db.from('orders').select('*').eq('id',id).single();
   if(error){ toast('載入失敗','err'); return; }
@@ -812,54 +957,61 @@ async function selOrder(n, id){
   ob.style.display='flex';
   g(`ob${n}-po`).textContent=data.po_number;
   g(`ob${n}-sub`).textContent=
-    `ETD：${fmtDate(data.etd)} | 金額：USD ${data.amount_usd?(+data.amount_usd).toLocaleString():'-'}`;
+    `ETD：${fmtDate(data.etd)} | ETA：${fmtDate(data.eta)} | 金額：USD ${data.amount_usd?(+data.amount_usd).toLocaleString():'-'}`;
+
+  // 問題5：已結清訂單隱藏「人工修改」按鈕
+  const editBtn=g(`ob${n}-edit`);
+  if(editBtn) editBtn.style.display=data.stage===4?'none':'';
+
   if(n===2){
     g('f2-sn').value=data.shipping_notice_no||'';
     g('f2-eid').value=data.etc_invoice_date||'';
-    g('f2-sd').value=data.shipping_date||'';
+    g('f2-sd').value=data.eta||'';
+    g('f2-up-ref').value=data.unit_price?Number(data.unit_price).toFixed(4):'';
     g('f2-aq').value=data.actual_qty||'';
     g('f2-aa').value=data.actual_amount_usd||'';
     setRO(2,true);
   } else if(n===3){
     g('f3-eta').value=data.eta||'';
-    g('f3-cad').value=data.customs_agent_date||'';
     g('f3-cf').value=data.customs_fee||'';
     g('f3-tpf').value=data.trade_promotion_fee||'';
-    g('f3-csd').value=data.customer_signed_date||'';
-    g('f3-msd').value=data.monthly_statement_date||'';
-    g('f3-trd').value=data.transfer_receipt_date||'';
-    g('f3-wid').value=data.warehouse_in_date||'';
-    g('f3-dd').value=data.deduction_date||'';
     setRO(3,true);
-  } else if(n===4){
-    g('f4-kd').value=data.kts_payment_date||'';
-    g('f4-ka').value=data.kts_payment_amount_usd||'';
-    g('f4-tld').value=data.tl_payment_date||'';
-    setRO(4,true);
   }
   toast(`已載入：${data.po_number}`,'info');
 }
+
 function clearSel(n){
   sel[n]=null;
   g(`ob${n}`).style.display='none';
   const ids={
-    2:['f2-sn','f2-eid','f2-sd','f2-aq','f2-aa'],
-    3:['f3-eta','f3-cad','f3-cf','f3-tpf','f3-csd','f3-msd','f3-trd','f3-wid','f3-dd'],
-    4:['f4-kd','f4-ka','f4-tld']
+    2:['f2-sn','f2-eid','f2-sd','f2-up-ref','f2-aq','f2-aa'],
+    3:['f3-cf','f3-tpf']
   };
   (ids[n]||[]).forEach(id=>{ g(id).value=''; g(id).classList.remove('af'); });
-  if(n===2){ g('fn2').style.display='none'; }
+  if(n===2){
+    g('fn2').style.display='none';
+    g('f3-eta') && (g('f3-eta').value='');
+  }
+  if(n===3) g('f3-eta').value='';
   setRO(n,false);
 }
+
 function setRO(n,ro){
   const ids={
     2:['f2-sn','f2-eid','f2-sd','f2-aq'],
-    3:['f3-eta','f3-cad','f3-cf','f3-tpf','f3-csd','f3-msd','f3-trd','f3-wid','f3-dd'],
-    4:['f4-kd','f4-ka','f4-tld']
+    3:['f3-cf','f3-tpf']
   };
   (ids[n]||[]).forEach(id=>{ g(id).readOnly=ro; });
+  // f3-eta 永遠唯讀
+  if(n===3 && g('f3-eta')) g('f3-eta').readOnly=true;
 }
-function enableEdit(n){ setRO(n,false); toast('已啟用編輯模式','info'); }
+
+function enableEdit(n){
+  setRO(n,false);
+  // ETA 在第三階段永遠唯讀
+  if(n===3 && g('f3-eta')) g('f3-eta').readOnly=true;
+  toast('已啟用編輯模式','info');
+}
 
 // ── BUTTONS ──
 function setBtnLoad(id,loading,label){
@@ -878,9 +1030,9 @@ function setupDZ(id, handler){
 
 // ── CLOSE DROPDOWNS ON OUTSIDE CLICK ──
 document.addEventListener('click',e=>{
-  [2,3,4].forEach(n=>{
+  [2,3].forEach(n=>{
     const dd=g(`dd${n}`), si=g(`sr${n}`);
-    if(dd&&!dd.contains(e.target)&&!si.contains(e.target)) dd.style.display='none';
+    if(dd&&si&&!dd.contains(e.target)&&!si.contains(e.target)) dd.style.display='none';
   });
 });
 
@@ -929,7 +1081,6 @@ async function handleImportFile(file){
     const ws=wb.Sheets[wb.SheetNames[0]];
     const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
     if(!rows.length){toast('Excel 無資料','err');return;}
-    // Map headers
     const mapped=rows.map(row=>{
       const rec={};
       for(const [k,v] of Object.entries(row)){
@@ -1016,6 +1167,11 @@ document.addEventListener('DOMContentLoaded',()=>{
   g('fi1').addEventListener('change',e=>handleFile1(e.target.files[0]));
   g('fi2').addEventListener('change',e=>handleFile2(e.target.files[0]));
   g('fi-imp').addEventListener('change',e=>handleImportFile(e.target.files[0]));
+
+  // 第四階段預設當月（帶出上個月區間）
+  const now2=new Date();
+  g('s4-month').value=`${now2.getFullYear()}-${String(now2.getMonth()+1).padStart(2,'0')}`;
+  updateS4QuickRange();
 });
 </script>
 </body>
