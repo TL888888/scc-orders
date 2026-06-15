@@ -1078,8 +1078,8 @@ async function runSearch(n){
     .select('id,po_number,etd,eta,amount_usd,etc_invoice_date,tl_payment_date,stage')
     .ilike('po_number',`%${q}%`)
     .order('created_at',{ascending:false}).limit(10);
-  // 問題3：第三階段只顯示 stage=2 的訂單
-  if(n===3) query=query.eq('stage',2);
+  // 第三階段：eta 有值（已完成第二階段）且 stage<4（未結清）均可搜尋
+  if(n===3) query=query.not('eta','is',null).lt('stage',4);
   const {data,error}=await query;
   if(error||!data?.length){
     dd.innerHTML='<div style="padding:16px;color:var(--mu);text-align:center;font-size:.875rem">找不到符合訂單</div>';
