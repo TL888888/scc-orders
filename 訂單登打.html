@@ -159,7 +159,11 @@ body{font-family:'Segoe UI','Microsoft JhengHei',Arial,sans-serif;background:var
   color:var(--mu);text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid var(--border);white-space:nowrap}
 .tbl-s4 td{padding:11px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
 .tbl-s4 tr:last-child td{border-bottom:none}
-.tbl-s4 tr:hover td{background:#fafafa}
+.tbl-s4 tbody tr{cursor:pointer}
+.tbl-s4 tbody tr:hover td{background:#fafafa}
+.tbl-s4 tbody tr.s4-sel td{background:var(--pri-bg)!important}
+/* S4 form divider */
+.s4-form-wrap{border-top:2px solid var(--border);margin-top:24px;padding-top:24px}
 .mode-tabs{display:flex;gap:8px;margin-bottom:20px}
 .mode-tab{padding:8px 20px;border-radius:8px;border:1.5px solid var(--border);background:#fff;
   font-size:.85rem;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s;color:var(--mu)}
@@ -481,6 +485,56 @@ body{font-family:'Segoe UI','Microsoft JhengHei',Arial,sans-serif;background:var
           </table>
         </div>
 
+        <!-- 收款登打表單（點選清單列後顯示）-->
+        <div id="s4-form" style="display:none" class="s4-form-wrap">
+
+          <!-- 已選訂單資訊列 -->
+          <div style="background:var(--pri-bg);border:1.5px solid #bfdbfe;border-radius:12px;
+            padding:14px 18px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <div id="ob4-po" style="font-weight:800;color:var(--pri);font-size:1rem"></div>
+              <div id="ob4-sub" style="font-size:.8rem;color:var(--mu);margin-top:2px"></div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-out btn-sm" id="ob4-edit" onclick="enableEdit(4)">✏️ 人工修改</button>
+              <button class="btn btn-danger btn-sm" id="ob4-del" onclick="delOrder(4)">🗑️ 刪除</button>
+              <button class="btn btn-gh btn-sm" onclick="clearS4Sel()">✕ 取消</button>
+            </div>
+          </div>
+
+          <!-- KTS 入帳 -->
+          <div class="sdiv">KTS 貨款入帳</div>
+          <div class="fg">
+            <div class="field">
+              <label>KTS 貨款入帳日</label>
+              <input type="date" id="f4-kd">
+            </div>
+            <div class="field">
+              <label>KTS 入帳金額（USD）</label>
+              <input type="number" id="f4-ka" placeholder="0.00" step="0.01" min="0">
+            </div>
+          </div>
+          <div class="actions" style="margin-top:12px;padding-top:12px">
+            <button class="btn btn-ok" id="bs4-kts" onclick="saveKTS()">💾 儲存KTS入帳資料</button>
+            <span id="ss4-kts" style="font-size:.85rem;color:var(--mu)"></span>
+          </div>
+
+          <!-- TL 付款 -->
+          <div class="sdiv" style="margin-top:24px">TL 支付深南</div>
+          <div class="fg">
+            <div class="field">
+              <label>TL 支付深南日期</label>
+              <input type="date" id="f4-tld">
+            </div>
+            <div class="field" style="visibility:hidden"></div>
+          </div>
+          <div class="actions" style="margin-top:12px;padding-top:12px">
+            <button class="btn btn-ok" id="bs4-tl" onclick="saveTL()">💾 儲存TL付款日期</button>
+            <span id="ss4-tl" style="font-size:.85rem;color:var(--mu)"></span>
+          </div>
+
+        </div><!-- /s4-form -->
+
       </div>
     </div>
 
@@ -528,7 +582,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
 
 const USERS = {'Tl3167':'tl888$$$','entry':'entry123'};
 let CU = null;
-const sel = {2:null, 3:null};
+const sel = {2:null, 3:null, 4:null};
 let st = {};
 
 // ── AUTH ──
@@ -899,11 +953,12 @@ function renderS4(orders, from, to){
     return;
   }
   wrap.style.display='block';
+  clearS4Sel();
   const SL=['','已建立','已出貨','已進口','已結清'];
   g('s4-tbody').innerHTML=orders.map(o=>{
     const qty=o.actual_qty||o.order_qty;
     const amt=o.actual_amount_usd||o.amount_usd;
-    return`<tr>
+    return`<tr data-id="${o.id}" onclick="selS4Order(${o.id})">
       <td><strong>${o.po_number||'—'}</strong></td>
       <td>${o.shipping_notice_no||'—'}</td>
       <td>${fmtDate(o.eta)}</td>
@@ -912,6 +967,101 @@ function renderS4(orders, from, to){
       <td>${amt!=null?'$'+Number(amt).toLocaleString('zh-TW',{minimumFractionDigits:2,maximumFractionDigits:2}):'—'}</td>
       <td><span class="bdg b${o.stage}">${SL[o.stage]||''}</span></td>
     </tr>`;}).join('');
+}
+
+// ── STAGE 4 收款選取與儲存 ──
+let s4LastRange = {from:'',to:''};
+
+async function selS4Order(id){
+  const {data,error}=await db.from('orders').select('*').eq('id',id).single();
+  if(error){ toast('載入失敗','err'); return; }
+  sel[4]=data;
+
+  // 高亮選取列
+  document.querySelectorAll('#s4-tbody tr').forEach(r=>r.classList.remove('s4-sel'));
+  const row=document.querySelector(`#s4-tbody tr[data-id="${id}"]`);
+  if(row) row.classList.add('s4-sel');
+
+  // 填入資訊列
+  g('ob4-po').textContent=data.po_number;
+  g('ob4-sub').textContent=
+    `ETA：${fmtDate(data.eta)} | 金額：USD ${data.actual_amount_usd?(+data.actual_amount_usd).toLocaleString():data.amount_usd?(+data.amount_usd).toLocaleString():'-'}`;
+
+  // stage=4 隱藏修改/刪除按鈕
+  const isSettled=data.stage===4;
+  g('ob4-edit').style.display=isSettled?'none':'';
+  g('ob4-del').style.display=isSettled?'none':'';
+
+  // 填入收款欄位
+  g('f4-kd').value=data.kts_payment_date||'';
+  g('f4-ka').value=data.kts_payment_amount_usd||'';
+  g('f4-tld').value=data.tl_payment_date||'';
+  setRO(4,true);
+
+  // 顯示表單
+  g('s4-form').style.display='block';
+  g('ss4-kts').textContent='';
+  g('ss4-tl').textContent='';
+  toast(`已載入：${data.po_number}`,'info');
+}
+
+function clearS4Sel(){
+  sel[4]=null;
+  g('s4-form').style.display='none';
+  document.querySelectorAll('#s4-tbody tr').forEach(r=>r.classList.remove('s4-sel'));
+  ['f4-kd','f4-ka','f4-tld'].forEach(id=>{ g(id).value=''; });
+  setRO(4,false);
+}
+
+async function saveKTS(){
+  if(!sel[4]){ toast('請先選擇訂單','err'); return; }
+  if(sel[4].stage===4){ toast('已結清訂單不可修改','err'); return; }
+  setBtnLoad('bs4-kts',true,'儲存中...');
+  const kd=g('f4-kd').value||null;
+  const ka=parseFloat(g('f4-ka').value)||null;
+  const tld=sel[4].tl_payment_date||g('f4-tld').value||null;
+  const newStage=(kd&&tld)?4:Math.max(sel[4].stage||1,2);
+  const payload={kts_payment_date:kd,kts_payment_amount_usd:ka,stage:newStage,updated_at:now()};
+  try{
+    const {error}=await db.from('orders').update(payload).eq('id',sel[4].id);
+    if(error) throw error;
+    sel[4]={...sel[4],...payload};
+    g('ss4-kts').textContent=`儲存時間：${new Date().toLocaleString('zh-TW')}`;
+    if(newStage===4){
+      toast(`${sel[4].po_number} KTS入帳已存，TL日期亦存在 → 訂單已結清！`,'ok');
+      clearS4Sel();
+      loadS4();
+    } else {
+      toast('KTS入帳資料儲存成功','ok');
+      setRO(4,true);
+    }
+  } catch(e){ toast('儲存失敗：'+e.message,'err'); }
+  finally{ setBtnLoad('bs4-kts',false,'💾 儲存KTS入帳資料'); }
+}
+
+async function saveTL(){
+  if(!sel[4]){ toast('請先選擇訂單','err'); return; }
+  if(sel[4].stage===4){ toast('已結清訂單不可修改','err'); return; }
+  setBtnLoad('bs4-tl',true,'儲存中...');
+  const tld=g('f4-tld').value||null;
+  const kd=sel[4].kts_payment_date||g('f4-kd').value||null;
+  const newStage=(kd&&tld)?4:Math.max(sel[4].stage||1,2);
+  const payload={tl_payment_date:tld,stage:newStage,updated_at:now()};
+  try{
+    const {error}=await db.from('orders').update(payload).eq('id',sel[4].id);
+    if(error) throw error;
+    sel[4]={...sel[4],...payload};
+    g('ss4-tl').textContent=`儲存時間：${new Date().toLocaleString('zh-TW')}`;
+    if(newStage===4){
+      toast(`${sel[4].po_number} TL付款已存，KTS日期亦存在 → 訂單已結清！`,'ok');
+      clearS4Sel();
+      loadS4();
+    } else {
+      toast('TL付款日期儲存成功','ok');
+      setRO(4,true);
+    }
+  } catch(e){ toast('儲存失敗：'+e.message,'err'); }
+  finally{ setBtnLoad('bs4-tl',false,'💾 儲存TL付款日期'); }
 }
 
 // ── SEARCH ──
@@ -1008,7 +1158,8 @@ function clearSel(n){
 function setRO(n,ro){
   const ids={
     2:['f2-sn','f2-eid','f2-sd','f2-aq'],
-    3:['f3-cf','f3-tpf']
+    3:['f3-cf','f3-tpf'],
+    4:['f4-kd','f4-ka','f4-tld']
   };
   (ids[n]||[]).forEach(id=>{ g(id).readOnly=ro; });
   // f3-eta 永遠唯讀
@@ -1023,7 +1174,8 @@ async function delOrder(n){
     const {error}=await db.from('orders').delete().eq('id',sel[n].id);
     if(error) throw error;
     toast(`${sel[n].po_number} 已刪除`,'ok');
-    clearSel(n);
+    if(n===4){ clearS4Sel(); loadS4(); }
+    else clearSel(n);
   } catch(e){ toast('刪除失敗：'+e.message,'err'); }
 }
 
