@@ -1044,10 +1044,15 @@ async function saveKTS(){
 async function saveTL(){
   if(!sel[4]){ toast('請先選擇訂單','err'); return; }
   if(sel[4].stage===4){ toast('已結清訂單不可修改','err'); return; }
-  setBtnLoad('bs4-tl',true,'儲存中...');
   const tld=g('f4-tld').value||null;
   const kd=sel[4].kts_payment_date||g('f4-kd').value||null;
   const newStage=(kd&&tld)?4:Math.max(sel[4].stage||1,2);
+  if(newStage===4){
+    const ka=sel[4].kts_payment_amount_usd!=null?`USD ${sel[4].kts_payment_amount_usd}`:(g('f4-ka').value?`USD ${g('f4-ka').value}`:'（未填）');
+    const ok=confirm(`儲存後，此訂單將標記為「已結清」並從清單移除。\n\nKTS入帳日：${kd||'（未填）'}\nKTS金額：${ka}\nTL付款日：${tld||'（未填）'}\n\n確認以上資料無誤嗎？`);
+    if(!ok) return;
+  }
+  setBtnLoad('bs4-tl',true,'儲存中...');
   const payload={tl_payment_date:tld,stage:newStage,updated_at:now()};
   try{
     const {error}=await db.from('orders').update(payload).eq('id',sel[4].id);
