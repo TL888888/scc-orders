@@ -186,6 +186,8 @@ body{font-family:'Segoe UI','Microsoft JhengHei',Arial,sans-serif;background:var
 .sp{width:16px;height:16px;border:2.5px solid rgba(255,255,255,.4);border-top-color:#fff;
   border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
 @keyframes spin{to{transform:rotate(360deg)}}
+/* S1 LIST - settled rows no hover */
+tr[style*="cursor:default"]:hover td{background:transparent!important}
 
 @media(max-width:640px){
   .fg,.fg3{grid-template-columns:1fr}
@@ -301,6 +303,34 @@ body{font-family:'Segoe UI','Microsoft JhengHei',Arial,sans-serif;background:var
           <button class="btn btn-ok" onclick="saveS1()" id="bs1">💾 儲存訂單</button>
           <span id="ss1" style="font-size:.85rem;color:var(--mu)"></span>
         </div>
+      </div>
+
+      <!-- ALL ORDERS LIST -->
+      <div class="card">
+        <div class="card-hd">
+          <div class="card-title"><div class="card-icon">📋</div>所有訂單列表</div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-sm btn-pri" id="s1f-all" onclick="setS1Filter('all')">全部</button>
+            <button class="btn btn-sm btn-gh" id="s1f-active" onclick="setS1Filter('active')">未結清</button>
+            <button class="btn btn-sm btn-gh" id="s1f-settled" onclick="setS1Filter('settled')">已結清</button>
+          </div>
+        </div>
+        <div id="s1-list-wrap" style="overflow-x:auto;border:1px solid var(--border);border-radius:10px">
+          <table class="tbl-s4">
+            <thead>
+              <tr>
+                <th>PO 號碼</th>
+                <th>下單日期</th>
+                <th>ETD</th>
+                <th>訂單金額（USD）</th>
+                <th>ETA</th>
+                <th>狀態</th>
+              </tr>
+            </thead>
+            <tbody id="s1-list-tbody"></tbody>
+          </table>
+        </div>
+        <div id="s1-list-empty" style="display:none;text-align:center;padding:24px;color:var(--mu);font-size:.9rem">暫無訂單資料</div>
       </div>
     </div>
 
@@ -586,6 +616,7 @@ const USERS = {'Tl3167':'tl888$$$','entry':'entry123'};
 let CU = null;
 const sel = {2:null, 3:null, 4:null};
 let st = {};
+let s1EditingId=null, s1Filter='all', s1Orders=[];
 
 // ── AUTH ──
 function doLogin(){
@@ -721,6 +752,7 @@ function clearS1(){
     const el=g(id); el.value=''; el.classList.remove('af');
   });
   g('fn1').style.display='none'; g('fn1').textContent='';
+  s1EditingId=null;
 }
 async function handleFile1(file){
   if(!file||file.type!=='application/pdf'){ toast('請選擇 PDF 檔案','err'); return; }
@@ -740,11 +772,8 @@ async function handleFile1(file){
     toast(cnt>0?`擷取 ${cnt} 個欄位，請確認後儲存`:'未能自動擷取，請手動填寫', cnt>0?'ok':'info');
   } catch(e){ g('fn1').textContent='❌ 解析失敗'; toast('PDF解析失敗：'+e.message,'err'); }
 }
-async function saveS1(){
-  const po=g('f1-po').value.trim();
-  if(!po){ toast('請填寫 PO 號碼','err'); return; }
-  setBtnLoad('bs1',true,'儲存中...');
-  const payload={
+function buildS1Payload(po){
+  return{
     po_number:po,
     order_date:g('f1-od').value||null,
     etd:g('f1-etd').value||null,
@@ -753,22 +782,137 @@ async function saveS1(){
     amount_usd:parseFloat(g('f1-amt').value)||null,
     stage:1
   };
-  try{
-    const {data:ex}=await db.from('orders').select('id,stage').eq('po_number',po).order('created_at',{ascending:false}).limit(1);
-    const firstEx=ex&&ex.length>0?ex[0]:null;
-    if(firstEx){
-      const upd={...payload,stage:Math.max(firstEx.stage||1,1),updated_at:now()};
-      const {error}=await db.from('orders').update(upd).eq('id',firstEx.id);
+}
+
+async function saveS1(){
+  const po=g('f1-po').value.trim();
+  if(!po){ toast('請填寫 PO 號碼','err'); return; }
+
+  // 從列表載入的訂單，直接更新，不走重複檢查
+  if(s1EditingId){
+    setBtnLoad('bs1',true,'儲存中...');
+    try{
+      const upd={...buildS1Payload(po),updated_at:now()};
+      const {error}=await db.from('orders').update(upd).eq('id',s1EditingId);
       if(error) throw error;
       toast(`PO ${po} 已更新`,'ok');
-    } else {
-      const {error}=await db.from('orders').insert([payload]);
+      g('ss1').textContent=`儲存時間：${new Date().toLocaleString('zh-TW')}`;
+      s1EditingId=null;
+      await loadS1List();
+    } catch(e){ toast('儲存失敗：'+e.message,'err'); }
+    finally{ setBtnLoad('bs1',false,'💾 儲存訂單'); }
+    return;
+  }
+
+  // 重複PO攔截：忽略OP字尾比對
+  setBtnLoad('bs1',true,'檢查中...');
+  const poBase=po.replace(/OP$/i,'');
+  let matchEx=null;
+  try{
+    const {data:ex}=await db.from('orders').select('id,stage,po_number')
+      .ilike('po_number',`${poBase}%`)
+      .order('created_at',{ascending:false}).limit(10);
+    matchEx=(ex||[]).find(o=>o.po_number.replace(/OP$/i,'')===poBase)||null;
+  } catch(e){ toast('查詢失敗：'+e.message,'err'); setBtnLoad('bs1',false,'💾 儲存訂單'); return; }
+  setBtnLoad('bs1',false,'💾 儲存訂單');
+
+  const SL=['','已建立','已出貨','已進口','已結清'];
+
+  if(!matchEx){
+    // 情況1：找不到 → 正常新增
+    setBtnLoad('bs1',true,'儲存中...');
+    try{
+      const {error}=await db.from('orders').insert([buildS1Payload(po)]);
       if(error) throw error;
       toast(`PO ${po} 建立成功`,'ok');
+      g('ss1').textContent=`儲存時間：${new Date().toLocaleString('zh-TW')}`;
+      await loadS1List();
+    } catch(e){ toast('儲存失敗：'+e.message,'err'); }
+    finally{ setBtnLoad('bs1',false,'💾 儲存訂單'); }
+
+  } else if(matchEx.stage===4){
+    // 情況3：已結清 → 警告並清空表單
+    alert(`此PO（${matchEx.po_number}）已結清，無法重複建立。\n如需修改請先至第四階段使用「解除結清」功能。`);
+    clearS1();
+
+  } else {
+    // 情況2：存在且未結清 → 確認更新
+    const ok=confirm(`此PO已存在（狀態：${SL[matchEx.stage]||'未知'}），是否要更新這筆訂單的資料？`);
+    if(ok){
+      setBtnLoad('bs1',true,'儲存中...');
+      try{
+        const upd={...buildS1Payload(po),stage:Math.max(matchEx.stage||1,1),updated_at:now()};
+        const {error}=await db.from('orders').update(upd).eq('id',matchEx.id);
+        if(error) throw error;
+        toast(`PO ${po} 已更新`,'ok');
+        g('ss1').textContent=`儲存時間：${new Date().toLocaleString('zh-TW')}`;
+        await loadS1List();
+      } catch(e){ toast('儲存失敗：'+e.message,'err'); }
+      finally{ setBtnLoad('bs1',false,'💾 儲存訂單'); }
     }
-    g('ss1').textContent=`儲存時間：${new Date().toLocaleString('zh-TW')}`;
-  } catch(e){ toast('儲存失敗：'+e.message,'err'); }
-  finally{ setBtnLoad('bs1',false,'💾 儲存訂單'); }
+  }
+}
+
+// ── STAGE 1 ORDERS LIST ──
+function setS1Filter(f){
+  s1Filter=f;
+  ['all','active','settled'].forEach(k=>{
+    const b=g(`s1f-${k}`);
+    if(b) b.className=`btn btn-sm ${f===k?'btn-pri':'btn-gh'}`;
+  });
+  renderS1List();
+}
+
+async function loadS1List(){
+  const {data,error}=await db.from('orders')
+    .select('id,po_number,order_date,etd,amount_usd,eta,stage')
+    .order('created_at',{ascending:false});
+  if(error){ toast('列表載入失敗','err'); return; }
+  s1Orders=data||[];
+  renderS1List();
+}
+
+function renderS1List(){
+  const SL=['','已建立','已出貨','已進口','已結清'];
+  let list=s1Orders;
+  if(s1Filter==='active') list=s1Orders.filter(o=>o.stage<4);
+  if(s1Filter==='settled') list=s1Orders.filter(o=>o.stage===4);
+  if(!list.length){
+    g('s1-list-wrap').style.display='none';
+    g('s1-list-empty').style.display='block';
+    return;
+  }
+  g('s1-list-wrap').style.display='block';
+  g('s1-list-empty').style.display='none';
+  g('s1-list-tbody').innerHTML=list.map(o=>{
+    const settled=o.stage===4;
+    const rowStyle=settled?'cursor:default;opacity:.65':'cursor:pointer';
+    const onclick=settled?'':'onclick="loadOrderToS1('+o.id+')"';
+    const amt=o.amount_usd!=null?'$'+Number(o.amount_usd).toLocaleString('zh-TW',{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
+    return`<tr style="${rowStyle}" ${onclick}>
+      <td><strong>${o.po_number}</strong></td>
+      <td>${fmtDate(o.order_date)}</td>
+      <td>${fmtDate(o.etd)}</td>
+      <td>${amt}</td>
+      <td>${fmtDate(o.eta)}</td>
+      <td><span class="bdg b${o.stage}">${SL[o.stage]||''}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+async function loadOrderToS1(id){
+  const {data,error}=await db.from('orders').select('*').eq('id',id).single();
+  if(error){ toast('載入失敗','err'); return; }
+  if(data.stage===4) return;
+  g('f1-po').value=data.po_number||'';
+  g('f1-od').value=data.order_date||'';
+  g('f1-etd').value=data.etd||'';
+  g('f1-qty').value=data.order_qty||'';
+  g('f1-up').value=data.unit_price||'';
+  g('f1-amt').value=data.amount_usd||'';
+  s1EditingId=id;
+  window.scrollTo({top:0,behavior:'smooth'});
+  toast(`已載入：${data.po_number}`,'info');
 }
 
 // ── STAGE 2 ──
@@ -1352,6 +1496,9 @@ document.addEventListener('DOMContentLoaded',()=>{
   const now2=new Date();
   g('s4-month').value=`${now2.getFullYear()}-${String(now2.getMonth()+1).padStart(2,'0')}`;
   updateS4QuickRange();
+
+  // 載入第一階段訂單列表
+  loadS1List();
 });
 </script>
 </body>
