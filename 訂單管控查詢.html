@@ -366,7 +366,7 @@ async function loadOrders(){
   let ships=[];
   if(ids.length){
     const {data:s}=await db.from('shipments')
-      .select('id,order_id,shipping_notice_no,eta,actual_qty,actual_amount_usd,customs_fee,trade_promotion_fee')
+      .select('id,order_id,shipping_notice_no,eta,actual_qty,actual_amount_usd,customs_fee,trade_promotion_fee,kts_payment_date,tl_payment_date')
       .in('order_id',ids);
     ships=s||[];
   }
@@ -379,7 +379,7 @@ async function loadOrders(){
     const unshipped=Math.max(0,(o.order_qty||0)-totalShipped);
     const customsFeeSum=myShips.reduce((sum,s)=>sum+(s.customs_fee||0),0);
     const tradeFeeSum=myShips.reduce((sum,s)=>sum+(s.trade_promotion_fee||0),0);
-    const shipAmtSum=myShips.reduce((sum,s)=>sum+(s.actual_amount_usd||0),0);
+    const shipAmtSum=totalShipped*(o.unit_price||0);
     const commission=shipAmtSum*30*0.03;
     return {...o,shipments:myShips,latest_eta:latestEta,
       total_shipped:totalShipped,unshipped,
@@ -464,6 +464,8 @@ function openDetail(id){
               <th style="text-align:right">出貨金額</th>
               <th style="text-align:right">報關費</th>
               <th style="text-align:right">推貿費</th>
+              <th>KTS入帳日</th>
+              <th>TL付款日</th>
             </tr></thead>
             <tbody>${o.shipments.map(s=>`<tr>
               <td>${s.shipping_notice_no||'—'}</td>
@@ -472,6 +474,8 @@ function openDetail(id){
               <td style="text-align:right">${s.actual_amount_usd?'$'+fmtN(s.actual_amount_usd):'—'}</td>
               <td style="text-align:right">${s.customs_fee!=null?fmtNI(s.customs_fee):'—'}</td>
               <td style="text-align:right">${s.trade_promotion_fee!=null?fmtNI(s.trade_promotion_fee):'—'}</td>
+              <td>${s.kts_payment_date?fmtD(s.kts_payment_date):'—'}</td>
+              <td>${s.tl_payment_date?fmtD(s.tl_payment_date):'—'}</td>
             </tr>`).join('')}</tbody>
           </table>
         </div>
@@ -493,14 +497,6 @@ function openDetail(id){
       </div>
     </div>
     ${shipsHtml}
-    <div class="info-group">
-      <div class="info-group-title">收款資料</div>
-      <div class="info-grid">
-        <div class="info-item"><span class="il">KTS 貨款入帳日</span>${dt(o.kts_payment_date)}</div>
-        <div class="info-item"><span class="il">KTS 入帳金額（USD）</span>${nu(o.kts_payment_amount_usd)}</div>
-        <div class="info-item"><span class="il">TL 支付深南日期</span>${dt(o.tl_payment_date)}</div>
-      </div>
-    </div>
     <div class="info-group" style="margin-bottom:0">
       <div class="info-group-title">系統資訊</div>
       <div class="info-grid">
