@@ -112,6 +112,8 @@ body{font-family:'Segoe UI','Microsoft JhengHei',Arial,sans-serif;background:var
 .btn-gh:hover:not(:disabled){background:#e2e8f0}
 .btn-sm{padding:7px 14px;font-size:.8rem}
 .btn-full{width:100%}
+.btn-danger{background:#fff;color:var(--err);border-color:var(--err)}
+.btn-danger:hover:not(:disabled){background:var(--err-bg)}
 
 /* SEARCH */
 .sw{position:relative;margin-bottom:12px}
@@ -162,7 +164,6 @@ body{font-family:'Segoe UI','Microsoft JhengHei',Arial,sans-serif;background:var
 .tbl-s4 tbody tr{cursor:pointer}
 .tbl-s4 tbody tr:hover td{background:#fafafa}
 .tbl-s4 tbody tr.s4-sel td{background:var(--pri-bg)!important}
-/* S4 form divider */
 .s4-form-wrap{border-top:2px solid var(--border);margin-top:24px;padding-top:24px}
 .mode-tabs{display:flex;gap:8px;margin-bottom:20px}
 .mode-tab{padding:8px 20px;border-radius:8px;border:1.5px solid var(--border);background:#fff;
@@ -178,16 +179,19 @@ body{font-family:'Segoe UI','Microsoft JhengHei',Arial,sans-serif;background:var
 .t-err{background:var(--err-bg);color:var(--err);border:1px solid #fca5a5}
 .t-info{background:var(--pri-bg);color:var(--pri);border:1px solid #93c5fd}
 
-/* DANGER BTN */
-.btn-danger{background:#fff;color:var(--err);border-color:var(--err)}
-.btn-danger:hover:not(:disabled){background:var(--err-bg)}
-
 /* SPINNER */
 .sp{width:16px;height:16px;border:2.5px solid rgba(255,255,255,.4);border-top-color:#fff;
   border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
 @keyframes spin{to{transform:rotate(360deg)}}
-/* S1 LIST - settled rows no hover */
-tr[style*="cursor:default"]:hover td{background:transparent!important}
+
+/* SETUP BANNER */
+.setup-banner{background:#fef3c7;border:2px solid #d97706;border-radius:10px;padding:16px 20px;margin-bottom:20px;font-size:.9rem;line-height:1.6}
+.setup-banner strong{color:#92400e}
+/* S1 detail card readonly inputs */
+.detail-ro{padding:8px 10px;border:1.5px solid var(--border);border-radius:9px;font-size:.88rem;font-family:inherit;background:#f8fafc;color:var(--tx);width:100%}
+/* S1 list action btns compact */
+.act-btns{display:flex;gap:4px;white-space:nowrap}
+tr[style*="opacity:.65"]:hover td{background:transparent!important}
 
 @media(max-width:640px){
   .fg,.fg3{grid-template-columns:1fr}
@@ -236,22 +240,24 @@ tr[style*="cursor:default"]:hover td{background:transparent!important}
     <div class="topbar-title">📋 訂單登打系統</div>
     <div class="topbar-right">
       <span id="tb-user" style="opacity:.85"></span>
-      <a href="%E8%A8%82%E5%96%AE%E7%AE%A1%E6%8E%A7%E6%9F%A5%E8%A9%A2.html"
-        style="color:#fff;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);padding:6px 14px;border-radius:8px;text-decoration:none;font-size:.85rem">📊 查詢</a>
-      <button class="btn btn-sm" onclick="doLogout()"
-        style="color:#fff;background:rgba(255,255,255,.15);border:none;padding:6px 14px;border-radius:8px">登出</button>
+      <a href="%E8%A8%82%E5%96%AE%E7%AE%A1%E6%8E%A7%E6%9F%A5%E8%A9%A2.html" style="color:#fff;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);padding:6px 14px;border-radius:8px;text-decoration:none;font-size:.85rem">📊 查詢</a>
+      <button class="btn btn-sm" onclick="doLogout()" style="color:#fff;background:rgba(255,255,255,.15);border:none;padding:6px 14px;border-radius:8px">登出</button>
     </div>
   </div>
 
   <nav class="stage-nav">
     <button class="snb active" data-s="1" onclick="switchStage(1)"><span class="num">1</span>訂單資料</button>
     <button class="snb" data-s="2" onclick="switchStage(2)"><span class="num">2</span>出貨資料</button>
-    <button class="snb" data-s="3" onclick="switchStage(3)"><span class="num">3</span>進口資料</button>
+    <button class="snb" data-s="3" onclick="switchStage(3)"><span class="num">3</span>進口費用</button>
     <button class="snb" data-s="4" onclick="switchStage(4)"><span class="num">4</span>應收帳款</button>
     <button class="snb" data-s="5" onclick="switchStage(5)"><span class="num">📥</span>批次匯入</button>
   </nav>
 
   <div class="content">
+    <div id="setup-banner" class="setup-banner" style="display:none">
+      ⚠️ <strong>系統需要初始化</strong>：shipments 表尚未建立。<br>
+      請至 <strong>Supabase Dashboard → SQL Editor</strong> 執行 <code>setup.sql</code> 檔案中的 SQL，完成後重新整理頁面。
+    </div>
 
     <!-- STAGE 1 -->
     <div class="stage-panel active" id="p1">
@@ -260,52 +266,32 @@ tr[style*="cursor:default"]:hover td{background:transparent!important}
           <div class="card-title"><div class="card-icon">📄</div>第一階段：訂單基本資料</div>
           <div style="display:flex;gap:8px">
             <button class="btn btn-gh btn-sm" onclick="clearS1()">清除</button>
-            <button class="btn btn-out btn-sm" onclick="toast('所有欄位均可直接編輯','info')">✏️ 人工修改</button>
           </div>
         </div>
-
         <div class="dz" id="dz1">
           <input type="file" accept=".pdf" id="fi1">
           <div class="dz-icon">📑</div>
           <div class="dz-text">拖曳訂單 PDF 到此處，或 <strong>點擊選擇檔案</strong><br>系統將自動擷取訂單資料</div>
           <div class="dz-fn" id="fn1"></div>
         </div>
-
         <div class="fg">
-          <div class="field s2">
-            <label>PO 號碼 <span class="req">*</span></label>
-            <input type="text" id="f1-po" placeholder="例：1459326OP">
-          </div>
-          <div class="field">
-            <label>訂單日期</label>
-            <input type="date" id="f1-od">
-          </div>
-          <div class="field">
-            <label>ETD（預計出貨日）</label>
-            <input type="date" id="f1-etd">
-          </div>
-          <div class="field">
-            <label>訂單數量</label>
-            <input type="number" id="f1-qty" placeholder="0" min="0" oninput="calc1()">
-          </div>
-          <div class="field">
-            <label>單價（USD）</label>
-            <input type="number" id="f1-up" placeholder="0.0000" step="0.0001" min="0" oninput="calc1()">
-          </div>
+          <div class="field s2"><label>PO 號碼 <span class="req">*</span></label><input type="text" id="f1-po" placeholder="例：1459326OP"></div>
+          <div class="field"><label>訂單日期</label><input type="date" id="f1-od"></div>
+          <div class="field"><label>ETD（預計出貨日）</label><input type="date" id="f1-etd"></div>
+          <div class="field"><label>訂單數量</label><input type="number" id="f1-qty" placeholder="0" min="0" oninput="calc1()"></div>
+          <div class="field"><label>單價（USD）</label><input type="number" id="f1-up" placeholder="0.0000" step="0.0001" min="0" oninput="calc1()"></div>
           <div class="field s2">
             <label>訂單金額（USD）</label>
             <input type="number" id="f1-amt" placeholder="自動計算或手動輸入" step="0.01" min="0">
             <span class="hint">數量 × 單價自動計算，可手動覆蓋</span>
           </div>
         </div>
-
         <div class="actions">
           <button class="btn btn-ok" onclick="saveS1()" id="bs1">💾 儲存訂單</button>
           <span id="ss1" style="font-size:.85rem;color:var(--mu)"></span>
         </div>
       </div>
 
-      <!-- ALL ORDERS LIST -->
       <div class="card">
         <div class="card-hd">
           <div class="card-title"><div class="card-icon">📋</div>所有訂單列表</div>
@@ -319,18 +305,29 @@ tr[style*="cursor:default"]:hover td{background:transparent!important}
           <table class="tbl-s4">
             <thead>
               <tr>
+                <th>訂單日期</th>
                 <th>PO 號碼</th>
-                <th>下單日期</th>
-                <th>ETD</th>
-                <th>訂單金額（USD）</th>
+                <th>訂單數量</th>
+                <th>訂單金額(USD)</th>
                 <th>ETA</th>
+                <th>已出數量</th>
+                <th>未出數量</th>
                 <th>狀態</th>
+                <th>操作</th>
               </tr>
             </thead>
-            <tbody id="s1-list-tbody"></tbody>
+            <tbody id="s1-list-tbody"><tr><td colspan="9" style="text-align:center;padding:20px;color:var(--mu)">載入中...</td></tr></tbody>
           </table>
         </div>
         <div id="s1-list-empty" style="display:none;text-align:center;padding:24px;color:var(--mu);font-size:.9rem">暫無訂單資料</div>
+      </div>
+
+      <div class="card" id="s1-detail" style="display:none">
+        <div class="card-hd">
+          <div class="card-title"><div class="card-icon">📊</div><span id="s1-detail-title">訂單詳情</span></div>
+          <button class="btn btn-gh btn-sm" onclick="hideS1Detail()">✕ 關閉</button>
+        </div>
+        <div id="s1-detail-body"></div>
       </div>
     </div>
 
@@ -339,62 +336,48 @@ tr[style*="cursor:default"]:hover td{background:transparent!important}
       <div class="card">
         <div class="card-hd">
           <div class="card-title"><div class="card-icon">🚢</div>第二階段：出貨資料</div>
+          <button class="btn btn-gh btn-sm" onclick="clearS2()">清除</button>
         </div>
-
         <div class="sw">
           <span class="si-icon">🔍</span>
-          <input class="si" type="text" id="sr2" placeholder="輸入 PO 號碼搜尋..." oninput="doSearch(2)">
+          <input class="si" type="text" id="sr2" placeholder="輸入 PO 號碼搜尋訂單（或拖曳 PDF 自動比對）..." oninput="doSearch(2)">
         </div>
         <div class="sd" id="dd2"></div>
-
         <div class="obar" id="ob2">
           <div><div class="obar-po" id="ob2-po"></div><div class="obar-sub" id="ob2-sub"></div></div>
-          <div style="display:flex;gap:8px">
-            <button class="btn btn-out btn-sm" id="ob2-edit" onclick="enableEdit(2)">✏️ 人工修改</button>
-            <button class="btn btn-danger btn-sm" id="ob2-del" onclick="delOrder(2)">🗑️ 刪除</button>
-            <button class="btn btn-gh btn-sm" onclick="clearSel(2)">✕ 取消</button>
-          </div>
+          <button class="btn btn-gh btn-sm" onclick="clearS2()">✕ 取消</button>
         </div>
-
         <div class="dz" id="dz2">
           <input type="file" accept=".pdf" id="fi2">
           <div class="dz-icon">📦</div>
           <div class="dz-text">拖曳送貨單 PDF 到此處，或 <strong>點擊選擇檔案</strong><br>系統將自動擷取送貨單資料並連動訂單單價</div>
           <div class="dz-fn" id="fn2"></div>
         </div>
-
         <div class="fg">
-          <div class="field">
-            <label>送貨單號</label>
-            <input type="text" id="f2-sn" placeholder="例：ITC260611-24">
-          </div>
-          <div class="field">
-            <label>ETC 發票日期</label>
-            <input type="date" id="f2-eid">
-          </div>
-          <div class="field">
-            <label>ETA（交易日期）</label>
-            <input type="date" id="f2-sd">
-          </div>
-          <div class="field">
-            <label>連動單價（USD）</label>
-            <input type="number" id="f2-up-ref" placeholder="由訂單帶入" step="0.0001" readonly>
-            <span class="hint">由第一階段訂單自動帶入</span>
-          </div>
-          <div class="field">
-            <label>實際數量</label>
-            <input type="number" id="f2-aq" placeholder="0" min="0" oninput="calc2()">
-          </div>
-          <div class="field">
-            <label>實際金額（USD）</label>
-            <input type="number" id="f2-aa" placeholder="自動計算" step="0.01" readonly>
-            <span class="hint">連動單價 × 實際數量自動計算</span>
-          </div>
+          <div class="field"><label>送貨單號</label><input type="text" id="f2-sn" placeholder="例：ITC260611-24"></div>
+          <div class="field"><label>ETA（交易日期）</label><input type="date" id="f2-eta"></div>
+          <div class="field"><label>連動單價（USD）</label><input type="number" id="f2-up-ref" placeholder="由訂單帶入" step="0.0001" readonly><span class="hint">由第一階段訂單自動帶入</span></div>
+          <div class="field"><label>實際數量</label><input type="number" id="f2-aq" placeholder="0" min="0" oninput="calc2()"></div>
+          <div class="field s2"><label>實際金額（USD）</label><input type="number" id="f2-aa" placeholder="自動計算" step="0.01" readonly><span class="hint">連動單價 × 實際數量</span></div>
         </div>
-
         <div class="actions">
-          <button class="btn btn-ok" onclick="saveS2()" id="bs2">💾 儲存出貨資料</button>
+          <button class="btn btn-ok" onclick="saveS2()" id="bs2">💾 新增出貨記錄</button>
           <span id="ss2" style="font-size:.85rem;color:var(--mu)"></span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-hd">
+          <div class="card-title"><div class="card-icon">📦</div>最近出貨記錄</div>
+          <button class="btn btn-gh btn-sm" onclick="loadS2List()">↺ 重整</button>
+        </div>
+        <div id="s2-list-wrap" style="overflow-x:auto;border:1px solid var(--border);border-radius:10px">
+          <table class="tbl-s4">
+            <thead>
+              <tr><th>PO 號碼</th><th>送貨單號</th><th>ETA</th><th>已出數量</th><th>出貨金額(USD)</th><th>狀態</th></tr>
+            </thead>
+            <tbody id="s2-list-tbody"><tr><td colspan="6" style="text-align:center;padding:20px;color:var(--mu)">載入中...</td></tr></tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -403,63 +386,42 @@ tr[style*="cursor:default"]:hover td{background:transparent!important}
     <div class="stage-panel" id="p3">
       <div class="card">
         <div class="card-hd">
-          <div class="card-title"><div class="card-icon">🏭</div>第三階段：進口資料</div>
+          <div class="card-title"><div class="card-icon">🏭</div>第三階段：進口費用</div>
         </div>
-
         <div class="sw">
           <span class="si-icon">🔍</span>
-          <input class="si" type="text" id="sr3" placeholder="輸入 PO 號碼搜尋（只顯示已出貨未進口訂單）..." oninput="doSearch(3)">
+          <input class="si" type="text" id="sr3" placeholder="輸入 PO 號碼搜尋（顯示未填報關費的出貨記錄）..." oninput="doSearch3()">
         </div>
         <div class="sd" id="dd3"></div>
-
-        <div class="obar" id="ob3">
+        <div class="obar" id="ob3" style="display:none">
           <div><div class="obar-po" id="ob3-po"></div><div class="obar-sub" id="ob3-sub"></div></div>
-          <div style="display:flex;gap:8px">
-            <button class="btn btn-out btn-sm" id="ob3-edit" onclick="enableEdit(3)">✏️ 人工修改</button>
-            <button class="btn btn-danger btn-sm" id="ob3-del" onclick="delOrder(3)">🗑️ 刪除</button>
-            <button class="btn btn-gh btn-sm" onclick="clearSel(3)">✕ 取消</button>
-          </div>
+          <button class="btn btn-gh btn-sm" onclick="clearS3()">✕ 取消</button>
         </div>
-
-        <div id="form3">
+        <div id="form3" style="display:none">
           <div class="fg">
-            <div class="field">
-              <label>ETA（交易日期）</label>
-              <input type="date" id="f3-eta" readonly>
-              <span class="hint">由第二階段自動帶入，唯讀</span>
-            </div>
-            <div class="field" style="visibility:hidden"></div>
-            <div class="field">
-              <label>報關費（NTD）</label>
-              <input type="number" id="f3-cf" placeholder="0" step="1" min="0">
-            </div>
-            <div class="field">
-              <label>推貿費（NTD）</label>
-              <input type="number" id="f3-tpf" placeholder="0" step="1" min="0">
-            </div>
+            <div class="field"><label>ETA（交易日期）</label><input type="date" id="f3-eta" readonly><span class="hint">唯讀，由出貨記錄帶入</span></div>
+            <div class="field"><label>送貨單號</label><input type="text" id="f3-sn" readonly></div>
+            <div class="field"><label>報關費（NTD）</label><input type="number" id="f3-cf" placeholder="0" step="1" min="0"></div>
+            <div class="field"><label>推貿費（NTD）</label><input type="number" id="f3-tpf" placeholder="0" step="1" min="0"></div>
           </div>
-        </div>
-
-        <div class="actions">
-          <button class="btn btn-ok" onclick="saveS3()" id="bs3">💾 儲存進口資料</button>
-          <span id="ss3" style="font-size:.85rem;color:var(--mu)"></span>
+          <div class="actions">
+            <button class="btn btn-ok" onclick="saveS3()" id="bs3">💾 儲存進口費用</button>
+            <span id="ss3" style="font-size:.85rem;color:var(--mu)"></span>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- STAGE 4: 應收帳款清單 -->
+    <!-- STAGE 4 -->
     <div class="stage-panel" id="p4">
       <div class="card">
         <div class="card-hd">
           <div class="card-title"><div class="card-icon">📋</div>第四階段：應收帳款清單</div>
         </div>
-
         <div class="mode-tabs">
           <button class="mode-tab active" id="s4-tab-quick" onclick="setS4Mode('quick')">快速模式（上個月）</button>
           <button class="mode-tab" id="s4-tab-custom" onclick="setS4Mode('custom')">自選區間</button>
         </div>
-
-        <!-- 快速模式 -->
         <div id="s4-quick">
           <div class="fg">
             <div class="field">
@@ -472,22 +434,12 @@ tr[style*="cursor:default"]:hover td{background:transparent!important}
             </div>
           </div>
         </div>
-
-        <!-- 自選區間 -->
         <div id="s4-custom" style="display:none">
           <div class="fg">
-            <div class="field">
-              <label>起始月份</label>
-              <input type="month" id="s4-from-m">
-            </div>
-            <div class="field">
-              <label>結束月份</label>
-              <input type="month" id="s4-to-m">
-            </div>
+            <div class="field"><label>起始月份</label><input type="month" id="s4-from-m"></div>
+            <div class="field"><label>結束月份</label><input type="month" id="s4-to-m"></div>
           </div>
         </div>
-
-        <!-- PO 搜尋 + 查詢按鈕 -->
         <div style="display:flex;gap:10px;align-items:center;margin:16px 0">
           <div class="sw" style="flex:1;margin:0">
             <span class="si-icon">🔍</span>
@@ -495,91 +447,57 @@ tr[style*="cursor:default"]:hover td{background:transparent!important}
           </div>
           <button class="btn btn-pri" onclick="loadS4()">查詢</button>
         </div>
-
-        <!-- 摘要 -->
         <div id="s4-summary" style="display:none" class="s4-summary"></div>
-
-        <!-- 列表 -->
         <div style="overflow-x:auto;border:1px solid var(--border);border-radius:10px;display:none" id="s4-table-wrap">
           <table class="tbl-s4">
             <thead>
-              <tr>
-                <th>PO 號碼</th>
-                <th>送貨單號</th>
-                <th>ETA</th>
-                <th>數量</th>
-                <th>單價（USD）</th>
-                <th>總金額（USD）</th>
-                <th>狀態</th>
-              </tr>
+              <tr><th>PO 號碼</th><th>送貨單號</th><th>ETA</th><th>數量</th><th>單價(USD)</th><th>總金額(USD)</th><th>狀態</th></tr>
             </thead>
             <tbody id="s4-tbody"></tbody>
           </table>
         </div>
-
-        <!-- 收款登打表單（點選清單列後顯示）-->
         <div id="s4-form" style="display:none" class="s4-form-wrap">
-
-          <!-- 已選訂單資訊列 -->
-          <div style="background:var(--pri-bg);border:1.5px solid #bfdbfe;border-radius:12px;
-            padding:14px 18px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between">
+          <div style="background:var(--pri-bg);border:1.5px solid #bfdbfe;border-radius:12px;padding:14px 18px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between">
             <div>
               <div id="ob4-po" style="font-weight:800;color:var(--pri);font-size:1rem"></div>
               <div id="ob4-sub" style="font-size:.8rem;color:var(--mu);margin-top:2px"></div>
             </div>
             <div style="display:flex;gap:8px">
-              <button class="btn btn-out btn-sm" id="ob4-edit" onclick="enableEdit(4)">✏️ 人工修改</button>
-              <button class="btn btn-danger btn-sm" id="ob4-del" onclick="delOrder(4)">🗑️ 刪除</button>
+              <button class="btn btn-out btn-sm" id="ob4-edit" onclick="enableEditS4()">✏️ 修改</button>
+              <button class="btn btn-danger btn-sm" id="ob4-del" onclick="delS4Order()">🗑️ 刪除</button>
               <button class="btn btn-gh btn-sm" onclick="clearS4Sel()">✕ 取消</button>
             </div>
           </div>
-
-          <!-- KTS 入帳 -->
           <div class="sdiv">KTS 貨款入帳</div>
           <div class="fg">
-            <div class="field">
-              <label>KTS 貨款入帳日</label>
-              <input type="date" id="f4-kd">
-            </div>
-            <div class="field">
-              <label>KTS 入帳金額（USD）</label>
-              <input type="number" id="f4-ka" placeholder="0.00" step="0.01" min="0">
-            </div>
+            <div class="field"><label>KTS 貨款入帳日</label><input type="date" id="f4-kd"></div>
+            <div class="field"><label>KTS 入帳金額（USD）</label><input type="number" id="f4-ka" placeholder="0.00" step="0.01" min="0"></div>
           </div>
           <div class="actions" style="margin-top:12px;padding-top:12px">
             <button class="btn btn-ok" id="bs4-kts" onclick="saveKTS()">💾 儲存KTS入帳資料</button>
             <span id="ss4-kts" style="font-size:.85rem;color:var(--mu)"></span>
           </div>
-
-          <!-- TL 付款 -->
           <div class="sdiv" style="margin-top:24px">TL 支付深南</div>
           <div class="fg">
-            <div class="field">
-              <label>TL 支付深南日期</label>
-              <input type="date" id="f4-tld">
-            </div>
+            <div class="field"><label>TL 支付深南日期</label><input type="date" id="f4-tld"></div>
             <div class="field" style="visibility:hidden"></div>
           </div>
           <div class="actions" style="margin-top:12px;padding-top:12px">
             <button class="btn btn-ok" id="bs4-tl" onclick="saveTL()">💾 儲存TL付款日期</button>
             <span id="ss4-tl" style="font-size:.85rem;color:var(--mu)"></span>
           </div>
-
-        </div><!-- /s4-form -->
-
+        </div>
       </div>
     </div>
 
     <!-- STAGE 5: IMPORT -->
     <div class="stage-panel" id="p5">
       <div class="card">
-        <div class="card-hd">
-          <div class="card-title"><div class="card-icon">📥</div>批次匯入歷史資料（Excel）</div>
-        </div>
+        <div class="card-hd"><div class="card-title"><div class="card-icon">📥</div>批次匯入歷史資料（Excel）</div></div>
         <div class="dz" id="dz-imp">
           <input type="file" accept=".xlsx,.xls,.csv" id="fi-imp">
           <div class="dz-icon">📊</div>
-          <div class="dz-text">拖曳 Excel 或 CSV 檔案到此處，或 <strong>點擊選擇檔案</strong><br>欄位對應：PO號碼、訂單日期、ETD、ETC發票日期、訂單金額USD…</div>
+          <div class="dz-text">拖曳 Excel 或 CSV 檔案到此處，或 <strong>點擊選擇檔案</strong></div>
           <div class="dz-fn" id="fn-imp"></div>
         </div>
         <div id="imp-preview" style="display:none">
@@ -600,48 +518,59 @@ tr[style*="cursor:default"]:hover td{background:transparent!important}
         </div>
       </div>
     </div>
-
   </div>
 </div>
 
 <div id="tc"></div>
 
 <script>
-const SURL = 'https://ppmytkolaqxtqcmztxxr.supabase.co';
-const SKEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBwbXl0a29sYXF4dHFjbXp0eHhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1MjA5OTAsImV4cCI6MjA5NTA5Njk5MH0.ERyqOCEBsD2rg6i49a7m5IHbxxQ1z7JvAQWqUfOYcto';
-const db = supabase.createClient(SURL, SKEY);
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+const SURL='https://ppmytkolaqxtqcmztxxr.supabase.co';
+const SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBwbXl0a29sYXF4dHFjbXp0eHhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1MjA5OTAsImV4cCI6MjA5NTA5Njk5MH0.ERyqOCEBsD2rg6i49a7m5IHbxxQ1z7JvAQWqUfOYcto';
+const db=supabase.createClient(SURL,SKEY);
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-const USERS = {'Tl3167':'tl888$$$','entry':'entry123'};
-let CU = null;
-const sel = {2:null, 3:null, 4:null};
-let st = {};
-let s1EditingId=null, s1Filter='all', s1Orders=[];
+const USERS={'Tl3167':'tl888$$$','entry':'entry123'};
+const SL=['','已建立','已出貨','已進口','已結清'];
+let CU=null;
+let s1Orders=[],s1Filter='all',s1EditingId=null,s1DetailId=null;
+let s2SelectedOrder=null;
+let s3SelectedShipment=null;
+let s4Mode='quick',s4List=[],s4SelItem=null;
+let impData=[];
 
 // ── AUTH ──
 function doLogin(){
-  const u=g('un').value.trim(), p=g('pw').value;
+  const u=g('un').value.trim(),p=g('pw').value;
   if(USERS[u]&&USERS[u]===p){
-    CU=u; sessionStorage.setItem('u',u);
+    CU=u;sessionStorage.setItem('u',u);
     g('login-screen').style.display='none';
     g('app-screen').style.display='block';
     g('tb-user').textContent=u;
     g('login-err').style.display='none';
+    loadS1Data();loadS2List();
   } else { g('login-err').style.display='block'; }
 }
-function doLogout(){ sessionStorage.removeItem('u'); location.reload(); }
-g('pw').addEventListener('keydown',e=>{ if(e.key==='Enter') doLogin(); });
+function doLogout(){sessionStorage.removeItem('u');location.reload();}
+g('pw').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 
 // ── HELPERS ──
-function g(id){ return document.getElementById(id); }
-function toast(msg, type='info'){
+function g(id){return document.getElementById(id);}
+function toast(msg,type='info'){
   const el=document.createElement('div');
-  el.className=`toast t-${type}`; el.textContent=msg;
+  el.className=`toast t-${type}`;el.textContent=msg;
   g('tc').appendChild(el);
-  setTimeout(()=>el.remove(), 3500);
+  setTimeout(()=>el.remove(),3500);
 }
-function fmtDate(s){ return s ? s.replace(/-/g,'/') : '-'; }
-function now(){ return new Date().toISOString(); }
+function fmtDate(s){return s?s.replace(/-/g,'/'):'—';}
+function fmtAmt(v,dec=2){
+  if(v==null||v==='') return '—';
+  return Number(v).toLocaleString('zh-TW',{minimumFractionDigits:dec,maximumFractionDigits:dec});
+}
+function now(){return new Date().toISOString();}
+function setBtnLoad(id,loading,label){
+  const b=g(id);b.disabled=loading;
+  b.innerHTML=loading?'<span class="sp"></span> '+label:label;
+}
 
 // ── STAGE NAV ──
 function switchStage(n){
@@ -672,40 +601,24 @@ function pdate(s){
   if(m) return `20${m[3]}-${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}`;
   return '';
 }
-function pnum(s){ return s ? (parseFloat(String(s).replace(/[^0-9.]/g,''))||'') : ''; }
+function pnum(s){return s?(parseFloat(String(s).replace(/[^0-9.]/g,''))||''):'';}
 
-// ── PARSE ORDER PDF（問題1修正）──
+// ── PARSE ORDER PDF ──
 function parseOrder(txt){
-  const r={};
-  let m;
-  // PO NUMBER — 保留 OP 字尾，例如 "1459326OP"
+  const r={};let m;
   m=txt.match(/PO\s+NUMBER\s+(\d+\s*OP)\b/i)
     ||txt.match(/PO\s+NUMBER\s+(\d+)/i)
     ||txt.match(/P\.?O\.?\s*(?:NO\.?|#|:)\s*(\d{5,}(?:\s*OP)?)/i);
   if(m) r.po_number=m[1].replace(/\s+/g,'');
-
-  // ORDER DATE
   m=txt.match(/ORDER\s+DATE\s+(\d{1,2}\/\d{1,2}\/\d{2,4})/i);
   if(m) r.order_date=pdate(m[1]);
-
-  // 訂單明細行：數量 PCS 日期 單價 總金額（一次抓四欄）
-  // 例：20,000 PCS 6/9/2026 0.9300 18,600.00
   m=txt.match(/(\d{1,3}(?:,\d{3})*)\s+PCS\s+(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d+\.\d{2,4})\s+([\d,]+\.\d{2})/i);
-  if(m){
-    r.order_qty=pnum(m[1]);
-    r.etd=pdate(m[2]);
-    r.unit_price=parseFloat(m[3]);
-    r.order_amount_usd=pnum(m[4]);
-  }
-
-  // ETD 備用（若上方未抓到）
+  if(m){r.order_qty=pnum(m[1]);r.etd=pdate(m[2]);r.unit_price=parseFloat(m[3]);r.order_amount_usd=pnum(m[4]);}
   if(!r.etd){
     m=txt.match(/\bDelivery\b[\s\S]{0,200}?(\d{1,2}\/\d{1,2}\/\d{4})/i)
       ||txt.match(/ETD\s*:?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i);
     if(m) r.etd=pdate(m[1]);
   }
-
-  // 訂單金額備用
   if(!r.order_amount_usd){
     m=txt.match(/TOTAL\s+AMOUNT\s+OF\s+ORDER[\s\S]*?USD\s*([\d,]+\.\d{2})/i)
       ||txt.match(/EXTENDED\s+PRICE[\s\S]{0,200}?(\d{1,3}(?:,\d{3})*\.\d{2})/i);
@@ -714,146 +627,182 @@ function parseOrder(txt){
   return r;
 }
 
-// ── PARSE SHIPPING PDF（問題2修正）——TA LIANG Shipping Notice ──
+// ── PARSE SHIPPING PDF ──
 function parseShipping(txt){
-  const r={};
-  let m;
-  // 送貨單號 — 條碼下方文字，格式 ITC260611-24
-  m=txt.match(/\b(ITC\d{6}-\d+)/i);
+  const r={};let m;
+  m=txt.match(/([A-Z]{2,5}\d{6,8}-\d+)/i);
   if(m) r.shipping_notice_no=m[1].toUpperCase();
-
-  // 訂單編號 — 7位數字（不接英文或破折號）
   m=txt.match(/(?<![A-Z0-9-])(\d{7})(?![A-Z0-9-])/i);
   if(m) r.po_number=m[1];
-
-  // 交易日期(=ETA) — YYYY/M/D 格式
   m=txt.match(/(\d{4}\/\d{1,2}\/\d{1,2})/);
   if(m) r.eta=pdate(m[1]);
-
-  // 數量 — 帶逗號的數字 + PCS
   m=txt.match(/(\d{1,3}(?:,\d{3})+)\s*(?:PCS|pcs)/i)
     ||txt.match(/(\d{1,3}(?:,\d{3})+)\s+Units/i);
-  if(m){
-    r.actual_qty=pnum(m[1]);
-  } else {
-    const all=[...txt.matchAll(/\b(\d{1,3}(?:,\d{3})+)\b/g)];
-    if(all.length) r.actual_qty=pnum(all[all.length-1][1]);
-  }
+  if(m){r.actual_qty=pnum(m[1]);}
+  else{const all=[...txt.matchAll(/\b(\d{1,3}(?:,\d{3})+)\b/g)];if(all.length) r.actual_qty=pnum(all[all.length-1][1]);}
   return r;
+}
+
+// ── DROP ZONES ──
+function setupDZ(id,handler){
+  const z=g(id);
+  z.addEventListener('dragover',e=>{e.preventDefault();z.classList.add('drag-over');});
+  z.addEventListener('dragleave',()=>z.classList.remove('drag-over'));
+  z.addEventListener('drop',e=>{e.preventDefault();z.classList.remove('drag-over');if(e.dataTransfer.files[0])handler(e.dataTransfer.files[0]);});
+}
+
+// ── SEARCH (stage 2) ──
+const stmr={};
+function doSearch(n){
+  clearTimeout(stmr[n]);
+  stmr[n]=setTimeout(()=>runSearch(n),300);
+}
+async function runSearch(n){
+  const q=g(`sr${n}`).value.trim();
+  const dd=g(`dd${n}`);
+  if(!q){dd.style.display='none';return;}
+  const {data,error}=await db.from('orders')
+    .select('id,po_number,order_date,etd,amount_usd,unit_price,stage,order_qty')
+    .ilike('po_number',`%${q}%`)
+    .order('created_at',{ascending:false}).limit(10);
+  if(error||!data?.length){
+    dd.innerHTML='<div style="padding:16px;color:var(--mu);text-align:center;font-size:.875rem">找不到符合訂單</div>';
+    dd.style.display='block';return;
+  }
+  dd.innerHTML=data.map(o=>`
+    <div class="si-item" onclick="selOrder2(${o.id})">
+      <div>
+        <div class="po">${o.po_number}</div>
+        <div class="meta">ETD：${fmtDate(o.etd)} | 訂單金額：USD ${fmtAmt(o.amount_usd)}</div>
+      </div>
+      <span class="bdg b${o.stage}">${SL[o.stage]||''}</span>
+    </div>`).join('');
+  dd.style.display='block';
 }
 
 // ── STAGE 1 ──
 function calc1(){
-  const q=parseFloat(g('f1-qty').value)||0, p=parseFloat(g('f1-up').value)||0;
+  const q=parseFloat(g('f1-qty').value)||0,p=parseFloat(g('f1-up').value)||0;
   if(q&&p) g('f1-amt').value=(q*p).toFixed(2);
 }
 function clearS1(){
   ['f1-po','f1-od','f1-etd','f1-qty','f1-up','f1-amt'].forEach(id=>{
-    const el=g(id); el.value=''; el.classList.remove('af');
+    const el=g(id);el.value='';el.classList.remove('af');
   });
-  g('fn1').style.display='none'; g('fn1').textContent='';
+  g('fn1').style.display='none';g('fn1').textContent='';
   s1EditingId=null;
+  g('bs1').textContent='💾 儲存訂單';
 }
 async function handleFile1(file){
-  if(!file||file.type!=='application/pdf'){ toast('請選擇 PDF 檔案','err'); return; }
-  g('fn1').style.display='block'; g('fn1').textContent='⏳ 解析中...';
+  if(!file||file.type!=='application/pdf'){toast('請選擇 PDF 檔案','err');return;}
+  g('fn1').style.display='block';g('fn1').textContent='⏳ 解析中...';
   try{
     const txt=await extractText(file);
     const d=parseOrder(txt);
-    if(d.po_number){ g('f1-po').value=d.po_number; g('f1-po').classList.add('af'); }
-    if(d.order_date){ g('f1-od').value=d.order_date; g('f1-od').classList.add('af'); }
-    if(d.etd){ g('f1-etd').value=d.etd; g('f1-etd').classList.add('af'); }
-    if(d.order_qty){ g('f1-qty').value=d.order_qty; g('f1-qty').classList.add('af'); }
-    if(d.unit_price){ g('f1-up').value=d.unit_price; g('f1-up').classList.add('af'); }
-    if(d.order_amount_usd){ g('f1-amt').value=d.order_amount_usd; g('f1-amt').classList.add('af'); }
+    if(d.po_number){g('f1-po').value=d.po_number;g('f1-po').classList.add('af');}
+    if(d.order_date){g('f1-od').value=d.order_date;g('f1-od').classList.add('af');}
+    if(d.etd){g('f1-etd').value=d.etd;g('f1-etd').classList.add('af');}
+    if(d.order_qty){g('f1-qty').value=d.order_qty;g('f1-qty').classList.add('af');}
+    if(d.unit_price){g('f1-up').value=d.unit_price;g('f1-up').classList.add('af');}
+    if(d.order_amount_usd){g('f1-amt').value=d.order_amount_usd;g('f1-amt').classList.add('af');}
     calc1();
     const cnt=Object.keys(d).length;
     g('fn1').textContent=`📎 ${file.name}`;
-    toast(cnt>0?`擷取 ${cnt} 個欄位，請確認後儲存`:'未能自動擷取，請手動填寫', cnt>0?'ok':'info');
-  } catch(e){ g('fn1').textContent='❌ 解析失敗'; toast('PDF解析失敗：'+e.message,'err'); }
+    toast(cnt>0?`擷取 ${cnt} 個欄位，請確認後儲存`:'未能自動擷取，請手動填寫',cnt>0?'ok':'info');
+  }catch(e){g('fn1').textContent='❌ 解析失敗';toast('PDF解析失敗：'+e.message,'err');}
 }
 function buildS1Payload(po){
-  return{
-    po_number:po,
-    order_date:g('f1-od').value||null,
-    etd:g('f1-etd').value||null,
-    order_qty:parseFloat(g('f1-qty').value)||null,
-    unit_price:parseFloat(g('f1-up').value)||null,
-    amount_usd:parseFloat(g('f1-amt').value)||null,
-    stage:1
-  };
+  return{po_number:po,order_date:g('f1-od').value||null,etd:g('f1-etd').value||null,
+    order_qty:parseFloat(g('f1-qty').value)||null,unit_price:parseFloat(g('f1-up').value)||null,
+    amount_usd:parseFloat(g('f1-amt').value)||null,stage:1};
 }
-
 async function saveS1(){
   const po=g('f1-po').value.trim();
-  if(!po){ toast('請填寫 PO 號碼','err'); return; }
-
-  // 從列表載入的訂單，直接更新，不走重複檢查
+  if(!po){toast('請填寫 PO 號碼','err');return;}
   if(s1EditingId){
     setBtnLoad('bs1',true,'儲存中...');
     try{
-      const upd={...buildS1Payload(po),updated_at:now()};
-      const {error}=await db.from('orders').update(upd).eq('id',s1EditingId);
+      const {error}=await db.from('orders').update({...buildS1Payload(po),updated_at:now()}).eq('id',s1EditingId);
       if(error) throw error;
       toast(`PO ${po} 已更新`,'ok');
       g('ss1').textContent=`儲存時間：${new Date().toLocaleString('zh-TW')}`;
-      s1EditingId=null;
-      await loadS1List();
-    } catch(e){ toast('儲存失敗：'+e.message,'err'); }
-    finally{ setBtnLoad('bs1',false,'💾 儲存訂單'); }
+      s1EditingId=null;g('bs1').textContent='💾 儲存訂單';
+      await loadS1Data();
+    }catch(e){toast('儲存失敗：'+e.message,'err');}
+    finally{setBtnLoad('bs1',false,'💾 儲存訂單');}
     return;
   }
-
-  // 重複PO攔截：忽略OP字尾比對
   setBtnLoad('bs1',true,'檢查中...');
   const poBase=po.replace(/OP$/i,'');
   let matchEx=null;
   try{
     const {data:ex}=await db.from('orders').select('id,stage,po_number')
-      .ilike('po_number',`${poBase}%`)
-      .order('created_at',{ascending:false}).limit(10);
+      .ilike('po_number',`${poBase}%`).order('created_at',{ascending:false}).limit(10);
     matchEx=(ex||[]).find(o=>o.po_number.replace(/OP$/i,'')===poBase)||null;
-  } catch(e){ toast('查詢失敗：'+e.message,'err'); setBtnLoad('bs1',false,'💾 儲存訂單'); return; }
+  }catch(e){toast('查詢失敗：'+e.message,'err');setBtnLoad('bs1',false,'💾 儲存訂單');return;}
   setBtnLoad('bs1',false,'💾 儲存訂單');
-
-  const SL=['','已建立','已出貨','已進口','已結清'];
-
   if(!matchEx){
-    // 情況1：找不到 → 正常新增
     setBtnLoad('bs1',true,'儲存中...');
     try{
       const {error}=await db.from('orders').insert([buildS1Payload(po)]);
       if(error) throw error;
       toast(`PO ${po} 建立成功`,'ok');
       g('ss1').textContent=`儲存時間：${new Date().toLocaleString('zh-TW')}`;
-      await loadS1List();
-    } catch(e){ toast('儲存失敗：'+e.message,'err'); }
-    finally{ setBtnLoad('bs1',false,'💾 儲存訂單'); }
-
+      await loadS1Data();
+    }catch(e){toast('儲存失敗：'+e.message,'err');}
+    finally{setBtnLoad('bs1',false,'💾 儲存訂單');}
   } else if(matchEx.stage===4){
-    // 情況3：已結清 → 警告並清空表單
-    alert(`此PO（${matchEx.po_number}）已結清，無法重複建立。\n如需修改請先至第四階段使用「解除結清」功能。`);
+    alert(`此PO（${matchEx.po_number}）已結清，無法重複建立。`);
     clearS1();
-
   } else {
-    // 情況2：存在且未結清 → 確認更新
-    const ok=confirm(`此PO已存在（狀態：${SL[matchEx.stage]||'未知'}），是否要更新這筆訂單的資料？`);
-    if(ok){
+    if(confirm(`此PO已存在（狀態：${SL[matchEx.stage]||'未知'}），是否要更新這筆訂單的資料？`)){
       setBtnLoad('bs1',true,'儲存中...');
       try{
-        const upd={...buildS1Payload(po),stage:Math.max(matchEx.stage||1,1),updated_at:now()};
-        const {error}=await db.from('orders').update(upd).eq('id',matchEx.id);
+        const {error}=await db.from('orders').update({...buildS1Payload(po),stage:Math.max(matchEx.stage||1,1),updated_at:now()}).eq('id',matchEx.id);
         if(error) throw error;
         toast(`PO ${po} 已更新`,'ok');
         g('ss1').textContent=`儲存時間：${new Date().toLocaleString('zh-TW')}`;
-        await loadS1List();
-      } catch(e){ toast('儲存失敗：'+e.message,'err'); }
-      finally{ setBtnLoad('bs1',false,'💾 儲存訂單'); }
+        await loadS1Data();
+      }catch(e){toast('儲存失敗：'+e.message,'err');}
+      finally{setBtnLoad('bs1',false,'💾 儲存訂單');}
     }
   }
 }
 
-// ── STAGE 1 ORDERS LIST ──
+async function loadS1Data(){
+  const {data:orders,error:oErr}=await db.from('orders')
+    .select('id,po_number,order_date,etd,order_qty,unit_price,amount_usd,stage,kts_payment_date,kts_payment_amount_usd,tl_payment_date')
+    .order('created_at',{ascending:false});
+  if(oErr){toast('列表載入失敗','err');return;}
+  const ids=(orders||[]).map(o=>o.id);
+  let shipMap={};
+  if(ids.length){
+    const {data:ships,error:sErr}=await db.from('shipments')
+      .select('id,order_id,shipping_notice_no,eta,actual_qty,actual_amount_usd,customs_fee,trade_promotion_fee')
+      .in('order_id',ids);
+    if(sErr){
+      if(sErr.message&&sErr.message.includes('does not exist')){
+        g('setup-banner').style.display='block';
+      } else {
+        toast('出貨資料載入失敗','err');
+      }
+    } else {
+      g('setup-banner').style.display='none';
+      (ships||[]).forEach(s=>{
+        if(!shipMap[s.order_id]) shipMap[s.order_id]=[];
+        shipMap[s.order_id].push(s);
+      });
+    }
+  }
+  s1Orders=(orders||[]).map(o=>{
+    const ships=shipMap[o.id]||[];
+    const total_shipped=ships.reduce((a,s)=>a+(parseInt(s.actual_qty)||0),0);
+    const latest_eta=ships.length?ships.reduce((a,s)=>(!a||(s.eta&&s.eta>a)?s.eta:a),null):null;
+    return{...o,shipments:ships,total_shipped,latest_eta};
+  });
+  renderS1List();
+}
+
 function setS1Filter(f){
   s1Filter=f;
   ['all','active','settled'].forEach(k=>{
@@ -863,17 +812,7 @@ function setS1Filter(f){
   renderS1List();
 }
 
-async function loadS1List(){
-  const {data,error}=await db.from('orders')
-    .select('id,po_number,order_date,etd,amount_usd,eta,stage')
-    .order('created_at',{ascending:false});
-  if(error){ toast('列表載入失敗','err'); return; }
-  s1Orders=data||[];
-  renderS1List();
-}
-
 function renderS1List(){
-  const SL=['','已建立','已出貨','已進口','已結清'];
   let list=s1Orders;
   if(s1Filter==='active') list=s1Orders.filter(o=>o.stage<4);
   if(s1Filter==='settled') list=s1Orders.filter(o=>o.stage===4);
@@ -886,154 +825,290 @@ function renderS1List(){
   g('s1-list-empty').style.display='none';
   g('s1-list-tbody').innerHTML=list.map(o=>{
     const settled=o.stage===4;
-    const rowStyle=settled?'cursor:default;opacity:.65':'cursor:pointer';
-    const onclick=settled?'':'onclick="loadOrderToS1('+o.id+')"';
-    const amt=o.amount_usd!=null?'$'+Number(o.amount_usd).toLocaleString('zh-TW',{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
-    return`<tr style="${rowStyle}" ${onclick}>
-      <td><strong>${o.po_number}</strong></td>
+    const unshipped=Math.max(0,(parseInt(o.order_qty)||0)-o.total_shipped);
+    const etaDisp=o.latest_eta?fmtDate(o.latest_eta):'—';
+    const actBtns=settled?'':`
+      <button class="btn btn-sm btn-out" onclick="event.stopPropagation();loadOrderToS1(${o.id})" title="編輯">✏️</button>
+      <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deleteOrder(${o.id},'${o.po_number}')" title="刪除">🗑️</button>
+      <button class="btn btn-sm btn-ok" onclick="event.stopPropagation();confirmSettle(${o.id},'${o.po_number}',${o.total_shipped},${unshipped},'${o.kts_payment_date||''}','${o.tl_payment_date||''}')" title="結清">✅</button>`;
+    const rowStyle=settled?'style="opacity:.65"':'';
+    const rowClick=settled?'':`onclick="showS1Detail(${o.id})"`;
+    return`<tr ${rowStyle} ${rowClick}>
       <td>${fmtDate(o.order_date)}</td>
-      <td>${fmtDate(o.etd)}</td>
-      <td>${amt}</td>
-      <td>${fmtDate(o.eta)}</td>
+      <td><strong>${o.po_number}</strong></td>
+      <td>${o.order_qty!=null?Number(o.order_qty).toLocaleString('zh-TW'):'—'}</td>
+      <td>$${fmtAmt(o.amount_usd)}</td>
+      <td>${etaDisp}</td>
+      <td>${o.total_shipped?Number(o.total_shipped).toLocaleString('zh-TW'):'0'}</td>
+      <td>${unshipped?Number(unshipped).toLocaleString('zh-TW'):'0'}</td>
       <td><span class="bdg b${o.stage}">${SL[o.stage]||''}</span></td>
+      <td><div class="act-btns">${actBtns}</div></td>
     </tr>`;
   }).join('');
 }
 
 async function loadOrderToS1(id){
-  const {data,error}=await db.from('orders').select('*').eq('id',id).single();
-  if(error){ toast('載入失敗','err'); return; }
-  if(data.stage===4) return;
-  g('f1-po').value=data.po_number||'';
-  g('f1-od').value=data.order_date||'';
-  g('f1-etd').value=data.etd||'';
-  g('f1-qty').value=data.order_qty||'';
-  g('f1-up').value=data.unit_price||'';
-  g('f1-amt').value=data.amount_usd||'';
+  const o=s1Orders.find(x=>x.id===id);
+  if(!o){toast('找不到訂單','err');return;}
+  if(o.stage===4) return;
+  g('f1-po').value=o.po_number||'';
+  g('f1-od').value=o.order_date||'';
+  g('f1-etd').value=o.etd||'';
+  g('f1-qty').value=o.order_qty||'';
+  g('f1-up').value=o.unit_price||'';
+  g('f1-amt').value=o.amount_usd||'';
   s1EditingId=id;
+  g('bs1').textContent='💾 更新訂單';
   window.scrollTo({top:0,behavior:'smooth'});
-  toast(`已載入：${data.po_number}`,'info');
+  toast(`已載入：${o.po_number}`,'info');
 }
+
+async function deleteOrder(id,po){
+  if(!confirm(`確定要刪除訂單「${po}」？相關出貨記錄也會一併刪除，此操作無法復原。`)) return;
+  try{
+    await db.from('shipments').delete().eq('order_id',id);
+    const {error}=await db.from('orders').delete().eq('id',id);
+    if(error) throw error;
+    toast(`${po} 已刪除`,'ok');
+    hideS1Detail();
+    await loadS1Data();
+  }catch(e){toast('刪除失敗：'+e.message,'err');}
+}
+
+function confirmSettle(id,po,shipped,unshipped,kts,tl){
+  const msg=`確定要將訂單「${po}」標記為「已結清」？\n\n已出數量：${shipped}\n未出數量：${unshipped}\nKTS入帳日：${kts||'（未填）'}\nTL付款日：${tl||'（未填）'}\n\n結清後將無法在第一至三階段修改。`;
+  if(!confirm(msg)) return;
+  db.from('orders').update({stage:4,updated_at:now()}).eq('id',id).then(({error})=>{
+    if(error){toast('結清失敗：'+error.message,'err');return;}
+    toast(`${po} 已結清`,'ok');
+    loadS1Data();
+  });
+}
+
+function showS1Detail(id){
+  if(s1DetailId===id){hideS1Detail();return;}
+  s1DetailId=id;
+  const o=s1Orders.find(x=>x.id===id);
+  if(!o) return;
+  g('s1-detail-title').textContent=`訂單詳情：${o.po_number}`;
+  const ships=o.shipments||[];
+  const shipsHtml=ships.length?`
+    <table class="tbl-s4" style="margin-top:8px">
+      <thead><tr><th>送貨單號</th><th>ETA</th><th>出貨數量</th><th>出貨金額(USD)</th><th>報關費(NTD)</th><th>推貿費(NTD)</th></tr></thead>
+      <tbody>${ships.map(s=>`<tr>
+        <td>${s.shipping_notice_no||'—'}</td>
+        <td>${fmtDate(s.eta)}</td>
+        <td>${s.actual_qty!=null?Number(s.actual_qty).toLocaleString('zh-TW'):'—'}</td>
+        <td>$${fmtAmt(s.actual_amount_usd)}</td>
+        <td>${s.customs_fee!=null?Number(s.customs_fee).toLocaleString('zh-TW'):'—'}</td>
+        <td>${s.trade_promotion_fee!=null?Number(s.trade_promotion_fee).toLocaleString('zh-TW'):'—'}</td>
+      </tr>`).join('')}</tbody>
+    </table>`:'<p style="color:var(--mu);font-size:.85rem;padding:8px 0">尚無出貨記錄</p>';
+  g('s1-detail-body').innerHTML=`
+    <div class="fg" style="margin-bottom:16px">
+      <div class="field"><label>PO 號碼</label><input class="detail-ro" readonly value="${o.po_number||''}"></div>
+      <div class="field"><label>狀態</label><input class="detail-ro" readonly value="${SL[o.stage]||''}"></div>
+      <div class="field"><label>訂單日期</label><input class="detail-ro" readonly value="${fmtDate(o.order_date)}"></div>
+      <div class="field"><label>ETD</label><input class="detail-ro" readonly value="${fmtDate(o.etd)}"></div>
+      <div class="field"><label>訂單數量</label><input class="detail-ro" readonly value="${o.order_qty!=null?Number(o.order_qty).toLocaleString('zh-TW'):''}"></div>
+      <div class="field"><label>單價(USD)</label><input class="detail-ro" readonly value="${o.unit_price!=null?Number(o.unit_price).toFixed(4):''}"></div>
+      <div class="field s2"><label>訂單金額(USD)</label><input class="detail-ro" readonly value="${o.amount_usd!=null?'$'+fmtAmt(o.amount_usd):''}"></div>
+      <div class="field"><label>KTS入帳日</label><input class="detail-ro" readonly value="${fmtDate(o.kts_payment_date)}"></div>
+      <div class="field"><label>KTS入帳金額(USD)</label><input class="detail-ro" readonly value="${o.kts_payment_amount_usd!=null?'$'+fmtAmt(o.kts_payment_amount_usd):''}"></div>
+      <div class="field"><label>TL付款日</label><input class="detail-ro" readonly value="${fmtDate(o.tl_payment_date)}"></div>
+    </div>
+    <div style="font-size:.8rem;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">出貨記錄（共 ${ships.length} 筆，已出 ${o.total_shipped} 件）</div>
+    ${shipsHtml}`;
+  g('s1-detail').style.display='block';
+  g('s1-detail').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function hideS1Detail(){g('s1-detail').style.display='none';s1DetailId=null;}
 
 // ── STAGE 2 ──
 function calc2(){
   const q=parseFloat(g('f2-aq').value)||0;
-  const p=sel[2]?(sel[2].unit_price||0):0;
+  const p=s2SelectedOrder?(parseFloat(s2SelectedOrder.unit_price)||0):0;
   if(p) g('f2-up-ref').value=Number(p).toFixed(4);
   if(q&&p) g('f2-aa').value=(q*p).toFixed(2);
 }
-
-// 送貨單 PDF 解析 + 自動連動訂單（問題2修正）
+function clearS2(){
+  s2SelectedOrder=null;
+  g('ob2').style.display='none';
+  ['f2-sn','f2-eta','f2-aq','f2-aa'].forEach(id=>{g(id).value='';g(id).classList.remove('af');});
+  g('f2-up-ref').value='';
+  g('fn2').style.display='none';g('fn2').textContent='';
+  g('sr2').value='';g('dd2').style.display='none';
+  g('ss2').textContent='';
+}
+function showS2OrderBar(ord){
+  s2SelectedOrder=ord;
+  const s1o=s1Orders.find(x=>x.id===ord.id);
+  const shipped=s1o?s1o.total_shipped:0;
+  const remaining=Math.max(0,(parseInt(ord.order_qty)||0)-shipped);
+  g('ob2-po').textContent=ord.po_number;
+  g('ob2-sub').textContent=`訂單數量：${ord.order_qty!=null?Number(ord.order_qty).toLocaleString('zh-TW'):'?'} | 單價：USD ${ord.unit_price?Number(ord.unit_price).toFixed(4):'?'} | 已出：${shipped} | 剩餘：${remaining}`;
+  g('ob2').style.display='flex';
+  g('f2-up-ref').value=ord.unit_price?Number(ord.unit_price).toFixed(4):'';
+  calc2();
+}
+async function selOrder2(id){
+  const {data,error}=await db.from('orders').select('*').eq('id',id).single();
+  if(error){toast('載入失敗','err');return;}
+  g('dd2').style.display='none';g('sr2').value='';
+  showS2OrderBar(data);
+  toast(`已選訂單：${data.po_number}`,'info');
+}
 async function handleFile2(file){
-  if(!file||file.type!=='application/pdf'){ toast('請選擇 PDF 檔案','err'); return; }
-  g('fn2').style.display='block'; g('fn2').textContent='⏳ 解析中...';
+  if(!file||file.type!=='application/pdf'){toast('請選擇 PDF 檔案','err');return;}
+  g('fn2').style.display='block';g('fn2').textContent='⏳ 解析中...';
   try{
     const txt=await extractText(file);
     const d=parseShipping(txt);
     g('fn2').textContent=`📎 ${file.name}`;
-
+    if(d.shipping_notice_no) g('f2-sn').value=d.shipping_notice_no;
+    if(d.eta) g('f2-eta').value=d.eta;
+    if(d.actual_qty) g('f2-aq').value=d.actual_qty;
     if(d.po_number){
-      // 搜尋資料庫，比對時忽略 OP 字尾
-      const {data,error}=await db.from('orders').select('*')
-        .ilike('po_number',`%${d.po_number}%`)
-        .order('created_at',{ascending:false}).limit(5);
-
-      if(!error && data && data.length>0){
-        // 優先找 po_number 去除OP後等於d.po_number的訂單
-        const match=data.find(o=>o.po_number.replace(/OP$/i,'')===d.po_number
-          ||o.po_number===d.po_number
-          ||o.po_number===d.po_number+'OP'
-        )||data[0];
-
-        if(match.stage===4){
-          toast(`訂單 ${match.po_number} 已結清，無法修改`,'err');
-          return;
-        }
-
-        // 自動選取訂單
-        await selOrder(2, match.id);
-
-        // 覆蓋送貨單資料（PDF優先）
-        if(d.shipping_notice_no){ g('f2-sn').value=d.shipping_notice_no; g('f2-sn').classList.add('af'); }
-        if(d.eta){ g('f2-sd').value=d.eta; g('f2-sd').classList.add('af'); }
-        if(d.actual_qty){ g('f2-aq').value=d.actual_qty; g('f2-aq').classList.add('af'); }
-
-        // 開放這三欄編輯（其餘維持readonly）
-        ['f2-sn','f2-sd','f2-aq'].forEach(id=>{ g(id).readOnly=false; });
+      const {data,error}=await db.from('orders').select('*').ilike('po_number',`%${d.po_number}%`).order('created_at',{ascending:false}).limit(5);
+      if(!error&&data&&data.length){
+        const match=data.find(o=>o.po_number.replace(/OP$/i,'')===d.po_number||o.po_number===d.po_number||o.po_number===d.po_number+'OP')||data[0];
+        if(match.stage===4){toast(`訂單 ${match.po_number} 已結清，無法新增出貨`,'err');return;}
+        showS2OrderBar(match);
         calc2();
-
-        const amt=g('f2-aa').value;
-        const up=sel[2]?Number(sel[2].unit_price).toFixed(4):'?';
-        toast(`✅ 找到訂單 ${match.po_number}｜單價 ${up}｜送貨單金額 USD ${amt}，請確認後儲存`,'ok');
+        toast(`✅ 找到訂單 ${match.po_number}，請確認後儲存`,'ok');
       } else {
-        // 未找到，顯示下拉讓使用者手動選
-        g('sr2').value=d.po_number;
-        doSearch(2);
-        // 填入其他欄位
-        if(d.shipping_notice_no) g('f2-sn').value=d.shipping_notice_no;
-        if(d.eta) g('f2-sd').value=d.eta;
-        if(d.actual_qty) g('f2-aq').value=d.actual_qty;
-        toast(`找到送貨單號 ${d.po_number}，請從下拉選擇對應訂單確認`,'info');
+        g('sr2').value=d.po_number;doSearch(2);
+        toast('請從下拉選擇對應訂單','info');
       }
     } else {
-      // 未抓到訂單編號，填入可填欄位
-      if(d.shipping_notice_no) g('f2-sn').value=d.shipping_notice_no;
-      if(d.eta) g('f2-sd').value=d.eta;
-      if(d.actual_qty) g('f2-aq').value=d.actual_qty;
-      toast('未能自動抓取訂單編號，請手動搜尋訂單','info');
+      toast('未能自動抓取訂單編號，請手動搜尋','info');
     }
-  } catch(e){ g('fn2').textContent='❌ 解析失敗'; toast('PDF解析失敗：'+e.message,'err'); }
+  }catch(e){g('fn2').textContent='❌ 解析失敗';toast('PDF解析失敗：'+e.message,'err');}
 }
-
 async function saveS2(){
-  if(!sel[2]){ toast('請先選擇訂單','err'); return; }
-  if(sel[2].stage===4){ toast('已結清訂單不可修改','err'); return; }
+  if(!s2SelectedOrder){toast('請先選擇訂單','err');return;}
+  if(s2SelectedOrder.stage===4){toast('已結清訂單不可新增出貨','err');return;}
+  const sn=g('f2-sn').value.trim();
+  const eta=g('f2-eta').value;
+  const aq=parseFloat(g('f2-aq').value)||null;
+  const aa=parseFloat(g('f2-aa').value)||null;
+  if(sn){
+    const {data:dup}=await db.from('shipments').select('id').eq('shipping_notice_no',sn).limit(1);
+    if(dup&&dup.length){toast(`送貨單號 ${sn} 已存在，請確認是否重複`,'err');return;}
+  }
   setBtnLoad('bs2',true,'儲存中...');
-  const payload={
-    shipping_notice_no:g('f2-sn').value||null,
-    etc_invoice_date:g('f2-eid').value||null,
-    eta:g('f2-sd').value||null,
-    actual_qty:parseFloat(g('f2-aq').value)||null,
-    actual_amount_usd:parseFloat(g('f2-aa').value)||null,
-    stage:Math.max(sel[2].stage||1,2),
-    updated_at:now()
-  };
   try{
-    const {error}=await db.from('orders').update(payload).eq('id',sel[2].id);
+    const {error}=await db.from('shipments').insert([{
+      order_id:s2SelectedOrder.id,
+      shipping_notice_no:sn||null,
+      eta:eta||null,
+      actual_qty:aq,
+      actual_amount_usd:aa,
+      customs_fee:0,
+      trade_promotion_fee:0
+    }]);
     if(error) throw error;
-    sel[2]={...sel[2],...payload};
-    toast('出貨資料儲存成功','ok');
+    const newStage=Math.max(s2SelectedOrder.stage||1,2);
+    await db.from('orders').update({stage:newStage,updated_at:now()}).eq('id',s2SelectedOrder.id);
+    toast('出貨記錄新增成功','ok');
     g('ss2').textContent=`儲存時間：${new Date().toLocaleString('zh-TW')}`;
-    setRO(2,true);
-  } catch(e){ toast('儲存失敗：'+e.message,'err'); }
-  finally{ setBtnLoad('bs2',false,'💾 儲存出貨資料'); }
+    clearS2();
+    await loadS1Data();
+    loadS2List();
+  }catch(e){toast('儲存失敗：'+e.message,'err');}
+  finally{setBtnLoad('bs2',false,'💾 新增出貨記錄');}
+}
+async function loadS2List(){
+  const {data,error}=await db.from('shipments')
+    .select('id,shipping_notice_no,eta,actual_qty,actual_amount_usd,order_id,orders(id,po_number,stage)')
+    .order('created_at',{ascending:false}).limit(30);
+  if(error){g('s2-list-tbody').innerHTML='<tr><td colspan="6" style="text-align:center;padding:16px;color:var(--mu)">載入失敗</td></tr>';return;}
+  const rows=data||[];
+  if(!rows.length){g('s2-list-tbody').innerHTML='<tr><td colspan="6" style="text-align:center;padding:16px;color:var(--mu)">暫無記錄</td></tr>';return;}
+  g('s2-list-tbody').innerHTML=rows.map(s=>{
+    const ord=s.orders||{};
+    return`<tr>
+      <td><strong>${ord.po_number||'—'}</strong></td>
+      <td>${s.shipping_notice_no||'—'}</td>
+      <td>${fmtDate(s.eta)}</td>
+      <td>${s.actual_qty!=null?Number(s.actual_qty).toLocaleString('zh-TW'):'—'}</td>
+      <td>$${fmtAmt(s.actual_amount_usd)}</td>
+      <td><span class="bdg b${ord.stage||1}">${SL[ord.stage||1]||''}</span></td>
+    </tr>`;
+  }).join('');
 }
 
 // ── STAGE 3 ──
+const s3tmr={};
+function doSearch3(){clearTimeout(s3tmr.t);s3tmr.t=setTimeout(runSearch3,300);}
+async function runSearch3(){
+  const q=g('sr3').value.trim();
+  const dd=g('dd3');
+  const {data,error}=await db.from('shipments')
+    .select('id,order_id,shipping_notice_no,eta,customs_fee,orders(id,po_number,stage)')
+    .or('customs_fee.is.null,customs_fee.eq.0');
+  if(error){dd.innerHTML='<div style="padding:16px;color:var(--mu);text-align:center">查詢失敗</div>';dd.style.display='block';return;}
+  const filtered=(data||[]).filter(s=>{
+    const ord=s.orders||{};
+    if(ord.stage>=4) return false;
+    if(q&&!ord.po_number?.toLowerCase().includes(q.toLowerCase())) return false;
+    return true;
+  });
+  if(!filtered.length){
+    dd.innerHTML='<div style="padding:16px;color:var(--mu);text-align:center;font-size:.875rem">找不到符合記錄</div>';
+    dd.style.display='block';return;
+  }
+  dd.innerHTML=filtered.slice(0,10).map(s=>{
+    const ord=s.orders||{};
+    return`<div class="si-item" onclick="selShipment3(${s.id},${ord.id||0},'${ord.po_number||''}','${s.shipping_notice_no||''}','${s.eta||''}')">
+      <div>
+        <div class="po">${ord.po_number||'—'}</div>
+        <div class="meta">送貨單號：${s.shipping_notice_no||'—'} | ETA：${fmtDate(s.eta)}</div>
+      </div>
+      <span class="bdg b${ord.stage||1}">${SL[ord.stage||1]||''}</span>
+    </div>`;
+  }).join('');
+  dd.style.display='block';
+}
+function selShipment3(id,orderId,po,sn,eta){
+  s3SelectedShipment={id,orderId,po,sn,eta};
+  g('dd3').style.display='none';g('sr3').value='';
+  g('ob3-po').textContent=po;
+  g('ob3-sub').textContent=`送貨單號：${sn||'—'} | ETA：${fmtDate(eta)}`;
+  g('ob3').style.display='flex';
+  g('f3-eta').value=eta||'';
+  g('f3-sn').value=sn||'';
+  g('f3-cf').value='';g('f3-tpf').value='';
+  g('form3').style.display='block';
+  toast(`已選出貨記錄：${sn||po}`,'info');
+}
+function clearS3(){
+  s3SelectedShipment=null;
+  g('ob3').style.display='none';
+  g('form3').style.display='none';
+  ['f3-eta','f3-sn','f3-cf','f3-tpf'].forEach(id=>g(id).value='');
+  g('sr3').value='';g('dd3').style.display='none';
+}
 async function saveS3(){
-  if(!sel[3]){ toast('請先選擇訂單','err'); return; }
-  if(sel[3].stage===4){ toast('已結清訂單不可修改','err'); return; }
+  if(!s3SelectedShipment){toast('請先選擇出貨記錄','err');return;}
   setBtnLoad('bs3',true,'儲存中...');
-  const payload={
-    customs_fee:parseFloat(g('f3-cf').value)||null,
-    trade_promotion_fee:parseFloat(g('f3-tpf').value)||null,
-    stage:Math.max(sel[3].stage||1,3),
-    updated_at:now()
-  };
+  const cf=parseInt(g('f3-cf').value)||0;
+  const tpf=parseInt(g('f3-tpf').value)||0;
   try{
-    const {error}=await db.from('orders').update(payload).eq('id',sel[3].id);
+    const {error}=await db.from('shipments').update({customs_fee:cf,trade_promotion_fee:tpf,updated_at:now()}).eq('id',s3SelectedShipment.id);
     if(error) throw error;
-    sel[3]={...sel[3],...payload};
-    toast('進口資料儲存成功','ok');
+    const {data:ord}=await db.from('orders').select('stage').eq('id',s3SelectedShipment.orderId).single();
+    const newStage=Math.max((ord?.stage||1),3);
+    await db.from('orders').update({stage:newStage,updated_at:now()}).eq('id',s3SelectedShipment.orderId);
+    toast('進口費用儲存成功','ok');
     g('ss3').textContent=`儲存時間：${new Date().toLocaleString('zh-TW')}`;
-    setRO(3,true);
-  } catch(e){ toast('儲存失敗：'+e.message,'err'); }
-  finally{ setBtnLoad('bs3',false,'💾 儲存進口資料'); }
+    clearS3();
+    await loadS1Data();
+  }catch(e){toast('儲存失敗：'+e.message,'err');}
+  finally{setBtnLoad('bs3',false,'💾 儲存進口費用');}
 }
 
-// ── STAGE 4: 應收帳款清單（問題4修正）──
-let s4Mode='quick';
-
+// ── STAGE 4 ──
 function setS4Mode(mode){
   s4Mode=mode;
   g('s4-tab-quick').classList.toggle('active',mode==='quick');
@@ -1041,32 +1116,29 @@ function setS4Mode(mode){
   g('s4-quick').style.display=mode==='quick'?'block':'none';
   g('s4-custom').style.display=mode==='custom'?'block':'none';
 }
-
 function updateS4QuickRange(){
   const v=g('s4-month').value;
-  if(!v){ g('s4-range-hint').textContent=''; return; }
+  if(!v){g('s4-range-hint').textContent='';return;}
   const [y,mo]=v.split('-').map(Number);
-  // 上個月
   const prev=new Date(y,mo-2,1);
-  const py=prev.getFullYear(), pm=prev.getMonth()+1;
+  const py=prev.getFullYear(),pm=prev.getMonth()+1;
   const lastDay=new Date(y,mo-1,0).getDate();
   g('s4-range-hint').textContent=`ETA 區間：${py}/${String(pm).padStart(2,'0')}/01 ~ ${py}/${String(pm).padStart(2,'0')}/${String(lastDay).padStart(2,'0')}`;
 }
-
 async function loadS4(){
-  let fromDate, toDate;
+  let fromDate,toDate;
   if(s4Mode==='quick'){
     const v=g('s4-month').value;
-    if(!v){ toast('請選擇月份','err'); return; }
+    if(!v){toast('請選擇月份','err');return;}
     const [y,mo]=v.split('-').map(Number);
     const prev=new Date(y,mo-2,1);
-    const py=prev.getFullYear(), pm=prev.getMonth()+1;
+    const py=prev.getFullYear(),pm=prev.getMonth()+1;
     const lastDay=new Date(y,mo-1,0).getDate();
     fromDate=`${py}-${String(pm).padStart(2,'0')}-01`;
     toDate=`${py}-${String(pm).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
   } else {
-    const fm=g('s4-from-m').value, tm=g('s4-to-m').value;
-    if(!fm||!tm){ toast('請選擇起訖月份','err'); return; }
+    const fm=g('s4-from-m').value,tm=g('s4-to-m').value;
+    if(!fm||!tm){toast('請選擇起訖月份','err');return;}
     const [fy,fmo]=fm.split('-').map(Number);
     const [ty,tmo]=tm.split('-').map(Number);
     const lastDay=new Date(ty,tmo,0).getDate();
@@ -1074,291 +1146,118 @@ async function loadS4(){
     toDate=`${ty}-${String(tmo).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
   }
   const po=g('s4-po').value.trim();
-  let q=db.from('orders')
-    .select('id,po_number,shipping_notice_no,eta,order_qty,actual_qty,unit_price,amount_usd,actual_amount_usd,stage')
-    .lt('stage',4)
-    .gte('eta',fromDate)
-    .lte('eta',toDate)
-    .order('eta',{ascending:true});
-  if(po) q=q.ilike('po_number',`%${po}%`);
+  let q=db.from('shipments')
+    .select('id,shipping_notice_no,eta,actual_qty,actual_amount_usd,order_id,orders(id,po_number,stage,unit_price,kts_payment_date,kts_payment_amount_usd,tl_payment_date)')
+    .gte('eta',fromDate).lte('eta',toDate);
   const {data,error}=await q;
-  if(error){ toast('查詢失敗：'+error.message,'err'); return; }
-  renderS4(data||[], fromDate, toDate);
+  if(error){toast('查詢失敗：'+error.message,'err');return;}
+  let list=(data||[]).filter(s=>{
+    const ord=s.orders||{};
+    if(ord.stage>=4) return false;
+    if(po&&!ord.po_number?.toLowerCase().includes(po.toLowerCase())) return false;
+    return true;
+  }).sort((a,b)=>a.eta<b.eta?-1:1);
+  s4List=list;
+  renderS4(list,fromDate,toDate);
 }
-
-function renderS4(orders, from, to){
-  const total=orders.length;
-  const totalAmt=orders.reduce((s,o)=>s+(+(o.actual_amount_usd||o.amount_usd)||0),0);
+function renderS4(list,from,to){
+  const totalAmt=list.reduce((s,x)=>s+(parseFloat(x.actual_amount_usd)||0),0);
   const sumEl=g('s4-summary');
   sumEl.style.display='block';
   sumEl.innerHTML=`<strong>ETA ${from.replace(/-/g,'/')} ～ ${to.replace(/-/g,'/')}</strong><br>
-    <span style="color:var(--mu)">總筆數：<strong style="color:var(--tx)">${total} 筆</strong>　應收總金額：<strong style="color:var(--ok)">USD ${totalAmt.toLocaleString('zh-TW',{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></span>`;
+    <span style="color:var(--mu)">總筆數：<strong style="color:var(--tx)">${list.length} 筆</strong>　應收總金額：<strong style="color:var(--ok)">USD ${fmtAmt(totalAmt)}</strong></span>`;
   const wrap=g('s4-table-wrap');
-  if(!total){
-    wrap.style.display='none';
-    return;
-  }
+  if(!list.length){wrap.style.display='none';clearS4Sel();return;}
   wrap.style.display='block';
   clearS4Sel();
-  const SL=['','已建立','已出貨','已進口','已結清'];
-  g('s4-tbody').innerHTML=orders.map(o=>{
-    const qty=o.actual_qty||o.order_qty;
-    const amt=o.actual_amount_usd||o.amount_usd;
-    return`<tr data-id="${o.id}" onclick="selS4Order(${o.id})">
-      <td><strong>${o.po_number||'—'}</strong></td>
-      <td>${o.shipping_notice_no||'—'}</td>
-      <td>${fmtDate(o.eta)}</td>
-      <td>${qty?Number(qty).toLocaleString('zh-TW'):'—'}</td>
-      <td>${o.unit_price!=null?Number(o.unit_price).toFixed(4):'—'}</td>
-      <td>${amt!=null?'$'+Number(amt).toLocaleString('zh-TW',{minimumFractionDigits:2,maximumFractionDigits:2}):'—'}</td>
-      <td><span class="bdg b${o.stage}">${SL[o.stage]||''}</span></td>
-    </tr>`;}).join('');
+  g('s4-tbody').innerHTML=list.map(s=>{
+    const ord=s.orders||{};
+    return`<tr data-id="${s.id}" onclick="selS4Row(${s.id})">
+      <td><strong>${ord.po_number||'—'}</strong></td>
+      <td>${s.shipping_notice_no||'—'}</td>
+      <td>${fmtDate(s.eta)}</td>
+      <td>${s.actual_qty!=null?Number(s.actual_qty).toLocaleString('zh-TW'):'—'}</td>
+      <td>${ord.unit_price!=null?Number(ord.unit_price).toFixed(4):'—'}</td>
+      <td>$${fmtAmt(s.actual_amount_usd)}</td>
+      <td><span class="bdg b${ord.stage||1}">${SL[ord.stage||1]||''}</span></td>
+    </tr>`;
+  }).join('');
 }
-
-// ── STAGE 4 收款選取與儲存 ──
-let s4LastRange = {from:'',to:''};
-
-async function selS4Order(id){
-  const {data,error}=await db.from('orders').select('*').eq('id',id).single();
-  if(error){ toast('載入失敗','err'); return; }
-  sel[4]=data;
-
-  // 高亮選取列
+function selS4Row(id){
+  const item=s4List.find(x=>x.id===id);
+  if(!item) return;
+  s4SelItem=item;
   document.querySelectorAll('#s4-tbody tr').forEach(r=>r.classList.remove('s4-sel'));
   const row=document.querySelector(`#s4-tbody tr[data-id="${id}"]`);
   if(row) row.classList.add('s4-sel');
-
-  // 填入資訊列
-  g('ob4-po').textContent=data.po_number;
-  g('ob4-sub').textContent=
-    `ETA：${fmtDate(data.eta)} | 金額：USD ${data.actual_amount_usd?(+data.actual_amount_usd).toLocaleString():data.amount_usd?(+data.amount_usd).toLocaleString():'-'}`;
-
-  // stage=4 隱藏修改/刪除按鈕
-  const isSettled=data.stage===4;
-  g('ob4-edit').style.display=isSettled?'none':'';
-  g('ob4-del').style.display=isSettled?'none':'';
-
-  // 填入收款欄位
-  g('f4-kd').value=data.kts_payment_date||'';
-  g('f4-ka').value=data.kts_payment_amount_usd||'';
-  g('f4-tld').value=data.tl_payment_date||'';
-  setRO(4,true);
-
-  // 顯示表單
+  const ord=item.orders||{};
+  g('ob4-po').textContent=ord.po_number||'—';
+  g('ob4-sub').textContent=`送貨單號：${item.shipping_notice_no||'—'} | ETA：${fmtDate(item.eta)} | 出貨金額：USD ${fmtAmt(item.actual_amount_usd)}`;
+  g('f4-kd').value=ord.kts_payment_date||'';
+  g('f4-ka').value=ord.kts_payment_amount_usd||'';
+  g('f4-tld').value=ord.tl_payment_date||'';
+  setRO4(true);
   g('s4-form').style.display='block';
-  g('ss4-kts').textContent='';
-  g('ss4-tl').textContent='';
-  toast(`已載入：${data.po_number}`,'info');
+  g('ss4-kts').textContent='';g('ss4-tl').textContent='';
+  toast(`已載入：${ord.po_number}`,'info');
 }
-
 function clearS4Sel(){
-  sel[4]=null;
+  s4SelItem=null;
   g('s4-form').style.display='none';
   document.querySelectorAll('#s4-tbody tr').forEach(r=>r.classList.remove('s4-sel'));
-  ['f4-kd','f4-ka','f4-tld'].forEach(id=>{ g(id).value=''; });
-  setRO(4,false);
+  ['f4-kd','f4-ka','f4-tld'].forEach(id=>g(id).value='');
 }
-
+function enableEditS4(){setRO4(false);toast('已啟用編輯模式','info');}
+function setRO4(ro){['f4-kd','f4-ka','f4-tld'].forEach(id=>{g(id).readOnly=ro;});}
+async function delS4Order(){
+  if(!s4SelItem) return;
+  const ord=s4SelItem.orders||{};
+  if(!confirm(`確定要刪除訂單「${ord.po_number}」及其所有出貨記錄？`)) return;
+  try{
+    await db.from('shipments').delete().eq('order_id',ord.id);
+    const {error}=await db.from('orders').delete().eq('id',ord.id);
+    if(error) throw error;
+    toast(`${ord.po_number} 已刪除`,'ok');
+    clearS4Sel();loadS4();loadS1Data();
+  }catch(e){toast('刪除失敗：'+e.message,'err');}
+}
 async function saveKTS(){
-  if(!sel[4]){ toast('請先選擇訂單','err'); return; }
-  if(sel[4].stage===4){ toast('已結清訂單不可修改','err'); return; }
+  if(!s4SelItem){toast('請先選擇記錄','err');return;}
+  const ord=s4SelItem.orders||{};
   setBtnLoad('bs4-kts',true,'儲存中...');
   const kd=g('f4-kd').value||null;
   const ka=parseFloat(g('f4-ka').value)||null;
-  const tld=sel[4].tl_payment_date||g('f4-tld').value||null;
-  const newStage=(kd&&tld)?4:Math.max(sel[4].stage||1,2);
-  const payload={kts_payment_date:kd,kts_payment_amount_usd:ka,stage:newStage,updated_at:now()};
+  const tld=ord.tl_payment_date||g('f4-tld').value||null;
+  const newStage=(kd&&tld)?4:Math.max(ord.stage||1,2);
   try{
-    const {error}=await db.from('orders').update(payload).eq('id',sel[4].id);
+    const {error}=await db.from('orders').update({kts_payment_date:kd,kts_payment_amount_usd:ka,stage:newStage,updated_at:now()}).eq('id',ord.id);
     if(error) throw error;
-    sel[4]={...sel[4],...payload};
     g('ss4-kts').textContent=`儲存時間：${new Date().toLocaleString('zh-TW')}`;
-    if(newStage===4){
-      toast(`${sel[4].po_number} KTS入帳已存，TL日期亦存在 → 訂單已結清！`,'ok');
-      clearS4Sel();
-      loadS4();
-    } else {
-      toast('KTS入帳資料儲存成功','ok');
-      setRO(4,true);
-    }
-  } catch(e){ toast('儲存失敗：'+e.message,'err'); }
-  finally{ setBtnLoad('bs4-kts',false,'💾 儲存KTS入帳資料'); }
+    if(newStage===4){toast(`${ord.po_number} 已結清！`,'ok');clearS4Sel();loadS4();loadS1Data();}
+    else{toast('KTS入帳資料儲存成功','ok');setRO4(true);}
+  }catch(e){toast('儲存失敗：'+e.message,'err');}
+  finally{setBtnLoad('bs4-kts',false,'💾 儲存KTS入帳資料');}
 }
-
 async function saveTL(){
-  if(!sel[4]){ toast('請先選擇訂單','err'); return; }
-  if(sel[4].stage===4){ toast('已結清訂單不可修改','err'); return; }
+  if(!s4SelItem){toast('請先選擇記錄','err');return;}
+  const ord=s4SelItem.orders||{};
   const tld=g('f4-tld').value||null;
-  const kd=sel[4].kts_payment_date||g('f4-kd').value||null;
-  const newStage=(kd&&tld)?4:Math.max(sel[4].stage||1,2);
+  const kd=ord.kts_payment_date||g('f4-kd').value||null;
+  const newStage=(kd&&tld)?4:Math.max(ord.stage||1,2);
   if(newStage===4){
-    const ka=sel[4].kts_payment_amount_usd!=null?`USD ${sel[4].kts_payment_amount_usd}`:(g('f4-ka').value?`USD ${g('f4-ka').value}`:'（未填）');
-    const ok=confirm(`儲存後，此訂單將標記為「已結清」並從清單移除。\n\nKTS入帳日：${kd||'（未填）'}\nKTS金額：${ka}\nTL付款日：${tld||'（未填）'}\n\n確認以上資料無誤嗎？`);
-    if(!ok) return;
+    const ka=ord.kts_payment_amount_usd!=null?`USD ${ord.kts_payment_amount_usd}`:(g('f4-ka').value?`USD ${g('f4-ka').value}`:'（未填）');
+    if(!confirm(`儲存後，此訂單將標記為「已結清」。\n\nKTS入帳日：${kd||'（未填）'}\nKTS金額：${ka}\nTL付款日：${tld||'（未填）'}\n\n確認無誤嗎？`)) return;
   }
   setBtnLoad('bs4-tl',true,'儲存中...');
-  const payload={tl_payment_date:tld,stage:newStage,updated_at:now()};
   try{
-    const {error}=await db.from('orders').update(payload).eq('id',sel[4].id);
+    const {error}=await db.from('orders').update({tl_payment_date:tld,stage:newStage,updated_at:now()}).eq('id',ord.id);
     if(error) throw error;
-    sel[4]={...sel[4],...payload};
     g('ss4-tl').textContent=`儲存時間：${new Date().toLocaleString('zh-TW')}`;
-    if(newStage===4){
-      toast(`${sel[4].po_number} TL付款已存，KTS日期亦存在 → 訂單已結清！`,'ok');
-      clearS4Sel();
-      loadS4();
-    } else {
-      toast('TL付款日期儲存成功','ok');
-      setRO(4,true);
-    }
-  } catch(e){ toast('儲存失敗：'+e.message,'err'); }
-  finally{ setBtnLoad('bs4-tl',false,'💾 儲存TL付款日期'); }
+    if(newStage===4){toast(`${ord.po_number} 已結清！`,'ok');clearS4Sel();loadS4();loadS1Data();}
+    else{toast('TL付款日期儲存成功','ok');setRO4(true);}
+  }catch(e){toast('儲存失敗：'+e.message,'err');}
+  finally{setBtnLoad('bs4-tl',false,'💾 儲存TL付款日期');}
 }
-
-// ── SEARCH ──
-const stmr={};
-function doSearch(n){
-  clearTimeout(stmr[n]);
-  stmr[n]=setTimeout(()=>runSearch(n),300);
-}
-async function runSearch(n){
-  const q=g(`sr${n}`).value.trim();
-  const dd=g(`dd${n}`);
-  if(!q){ dd.style.display='none'; return; }
-  let query=db.from('orders')
-    .select('id,po_number,etd,eta,amount_usd,etc_invoice_date,tl_payment_date,stage')
-    .ilike('po_number',`%${q}%`)
-    .order('created_at',{ascending:false}).limit(10);
-  // 第三階段：eta 有值（已完成第二階段）且 stage<4（未結清）均可搜尋
-  if(n===3) query=query.not('eta','is',null).lt('stage',4);
-  const {data,error}=await query;
-  if(error||!data?.length){
-    dd.innerHTML='<div style="padding:16px;color:var(--mu);text-align:center;font-size:.875rem">找不到符合訂單</div>';
-    dd.style.display='block'; return;
-  }
-  const lb=['','已建立','已出貨','已進口','已結清'];
-  dd.innerHTML=data.map(o=>{
-    const st=o.stage||(o.tl_payment_date?4:o.eta?3:o.etc_invoice_date?2:1);
-    return`
-    <div class="si-item" onclick="selOrder(${n},${o.id})">
-      <div>
-        <div class="po">${o.po_number}</div>
-        <div class="meta">
-          ${o.etd?`ETD：${fmtDate(o.etd)}`:''}
-          ${o.eta?` | ETA：${fmtDate(o.eta)}`:''}
-          ${o.amount_usd?` | USD ${(+o.amount_usd).toLocaleString()}`:''}
-        </div>
-      </div>
-      <span class="bdg b${st}">${lb[st]||''}</span>
-    </div>`}).join('');
-  dd.style.display='block';
-}
-
-async function selOrder(n, id){
-  const {data,error}=await db.from('orders').select('*').eq('id',id).single();
-  if(error){ toast('載入失敗','err'); return; }
-  sel[n]=data;
-  g(`dd${n}`).style.display='none';
-  g(`sr${n}`).value='';
-  const ob=g(`ob${n}`);
-  ob.style.display='flex';
-  g(`ob${n}-po`).textContent=data.po_number;
-  g(`ob${n}-sub`).textContent=
-    `ETD：${fmtDate(data.etd)} | ETA：${fmtDate(data.eta)} | 金額：USD ${data.amount_usd?(+data.amount_usd).toLocaleString():'-'}`;
-
-  // stage=4 隱藏「人工修改」和「刪除」按鈕；stage 1~3 正常顯示
-  const isSettled = data.stage === 4;
-  const editBtn=g(`ob${n}-edit`);
-  const delBtn=g(`ob${n}-del`);
-  if(editBtn) editBtn.style.display=isSettled?'none':'';
-  if(delBtn)  delBtn.style.display=isSettled?'none':'';
-
-  if(n===2){
-    g('f2-sn').value=data.shipping_notice_no||'';
-    g('f2-eid').value=data.etc_invoice_date||'';
-    g('f2-sd').value=data.eta||'';
-    g('f2-up-ref').value=data.unit_price?Number(data.unit_price).toFixed(4):'';
-    g('f2-aq').value=data.actual_qty||'';
-    g('f2-aa').value=data.actual_amount_usd||'';
-    setRO(2,true);
-  } else if(n===3){
-    g('f3-eta').value=data.eta||'';
-    g('f3-cf').value=data.customs_fee||'';
-    g('f3-tpf').value=data.trade_promotion_fee||'';
-    setRO(3,true);
-  }
-  toast(`已載入：${data.po_number}`,'info');
-}
-
-function clearSel(n){
-  sel[n]=null;
-  g(`ob${n}`).style.display='none';
-  const ids={
-    2:['f2-sn','f2-eid','f2-sd','f2-up-ref','f2-aq','f2-aa'],
-    3:['f3-cf','f3-tpf']
-  };
-  (ids[n]||[]).forEach(id=>{ g(id).value=''; g(id).classList.remove('af'); });
-  if(n===2){
-    g('fn2').style.display='none';
-    g('f3-eta') && (g('f3-eta').value='');
-  }
-  if(n===3) g('f3-eta').value='';
-  setRO(n,false);
-}
-
-function setRO(n,ro){
-  const ids={
-    2:['f2-sn','f2-eid','f2-sd','f2-aq'],
-    3:['f3-cf','f3-tpf'],
-    4:['f4-kd','f4-ka','f4-tld']
-  };
-  (ids[n]||[]).forEach(id=>{ g(id).readOnly=ro; });
-  // f3-eta 永遠唯讀
-  if(n===3 && g('f3-eta')) g('f3-eta').readOnly=true;
-}
-
-async function delOrder(n){
-  if(!sel[n]){ toast('請先選擇訂單','err'); return; }
-  if(sel[n].stage===4){ toast('已結清訂單不可刪除','err'); return; }
-  if(!confirm(`確定要刪除訂單「${sel[n].po_number}」？此操作無法復原。`)) return;
-  try{
-    const {error}=await db.from('orders').delete().eq('id',sel[n].id);
-    if(error) throw error;
-    toast(`${sel[n].po_number} 已刪除`,'ok');
-    if(n===4){ clearS4Sel(); loadS4(); }
-    else clearSel(n);
-  } catch(e){ toast('刪除失敗：'+e.message,'err'); }
-}
-
-function enableEdit(n){
-  setRO(n,false);
-  // ETA 在第三階段永遠唯讀
-  if(n===3 && g('f3-eta')) g('f3-eta').readOnly=true;
-  toast('已啟用編輯模式','info');
-}
-
-// ── BUTTONS ──
-function setBtnLoad(id,loading,label){
-  const b=g(id);
-  b.disabled=loading;
-  b.innerHTML=loading?'<span class="sp"></span> '+label:label;
-}
-
-// ── DROP ZONES ──
-function setupDZ(id, handler){
-  const z=g(id);
-  z.addEventListener('dragover',e=>{ e.preventDefault(); z.classList.add('drag-over'); });
-  z.addEventListener('dragleave',()=>z.classList.remove('drag-over'));
-  z.addEventListener('drop',e=>{ e.preventDefault(); z.classList.remove('drag-over'); if(e.dataTransfer.files[0]) handler(e.dataTransfer.files[0]); });
-}
-
-// ── CLOSE DROPDOWNS ON OUTSIDE CLICK ──
-document.addEventListener('click',e=>{
-  [2,3].forEach(n=>{
-    const dd=g(`dd${n}`), si=g(`sr${n}`);
-    if(dd&&si&&!dd.contains(e.target)&&!si.contains(e.target)) dd.style.display='none';
-  });
-});
 
 // ── IMPORT EXCEL ──
 const COL_MAP={
@@ -1384,21 +1283,14 @@ const COL_MAP={
 const DATE_FIELDS=new Set(['etd','etc_invoice_date','eta','customs_agent_date','customer_signed_date','monthly_statement_date','transfer_receipt_date','warehouse_in_date','deduction_date','kts_payment_date','tl_payment_date']);
 const NUM_FIELDS=new Set(['amount_usd','customs_fee','trade_promotion_fee']);
 
-let impData=[];
-
 function excelDateToStr(v){
   if(typeof v==='string') return v;
-  if(typeof v==='number'){
-    const d=new Date(Math.round((v-25569)*86400*1000));
-    return d.toISOString().slice(0,10);
-  }
+  if(typeof v==='number'){const d=new Date(Math.round((v-25569)*86400*1000));return d.toISOString().slice(0,10);}
   if(v instanceof Date) return v.toISOString().slice(0,10);
   return '';
 }
-
 async function handleImportFile(file){
-  g('fn-imp').style.display='block';
-  g('fn-imp').textContent=`⏳ 解析 ${file.name}...`;
+  g('fn-imp').style.display='block';g('fn-imp').textContent=`⏳ 解析 ${file.name}...`;
   try{
     const buf=await file.arrayBuffer();
     const wb=XLSX.read(buf,{type:'array',cellDates:true});
@@ -1411,15 +1303,9 @@ async function handleImportFile(file){
         const norm=k.trim().toLowerCase().replace(/[\s\(\)（）\/]/g,'');
         const field=COL_MAP[norm];
         if(!field) continue;
-        if(DATE_FIELDS.has(field)){
-          const ds=excelDateToStr(v);
-          rec[field]=ds||null;
-        } else if(NUM_FIELDS.has(field)){
-          const n=parseFloat(String(v).replace(/,/g,''));
-          rec[field]=isNaN(n)?null:n;
-        } else {
-          rec[field]=String(v).trim()||null;
-        }
+        if(DATE_FIELDS.has(field)){rec[field]=excelDateToStr(v)||null;}
+        else if(NUM_FIELDS.has(field)){const n=parseFloat(String(v).replace(/,/g,''));rec[field]=isNaN(n)?null:n;}
+        else{rec[field]=String(v).trim()||null;}
       }
       return rec;
     }).filter(r=>r.po_number&&!/^(total|合計|小計|sum|subtotal|grand)/i.test(String(r.po_number).trim()));
@@ -1427,35 +1313,19 @@ async function handleImportFile(file){
     impData=mapped;
     g('fn-imp').textContent=`📎 ${file.name}`;
     renderImportPreview();
-  } catch(e){
-    toast('解析失敗：'+e.message,'err');
-    g('fn-imp').textContent='❌ 解析失敗';
-  }
+  }catch(e){toast('解析失敗：'+e.message,'err');g('fn-imp').textContent='❌ 解析失敗';}
 }
-
 function renderImportPreview(){
   if(!impData.length) return;
   const cols=['po_number','etd','etc_invoice_date','amount_usd','eta','customs_fee','kts_payment_date','tl_payment_date'];
   const labels={'po_number':'PO號碼','etd':'ETD','etc_invoice_date':'ETC發票日','amount_usd':'金額USD','eta':'ETA','customs_fee':'報關費','kts_payment_date':'KTS入帳日','tl_payment_date':'TL付款日'};
   g('imp-count').textContent=`共 ${impData.length} 筆資料`;
   g('imp-thead').innerHTML='<tr>'+cols.map(c=>`<th style="padding:8px 10px;text-align:left;font-size:.72rem;color:var(--mu);text-transform:uppercase;white-space:nowrap">${labels[c]||c}</th>`).join('')+'</tr>';
-  g('imp-tbody').innerHTML=impData.slice(0,50).map(r=>'<tr>'+cols.map(c=>{
-    const v=r[c];
-    return `<td style="padding:7px 10px;border-bottom:1px solid var(--border);white-space:nowrap">${v??''}</td>`;
-  }).join('')+'</tr>').join('');
-  if(impData.length>50){
-    g('imp-tbody').innerHTML+=`<tr><td colspan="${cols.length}" style="padding:8px 10px;color:var(--mu);font-size:.8rem">... 另有 ${impData.length-50} 筆（匯入時全部處理）</td></tr>`;
-  }
-  g('imp-preview').style.display='block';
-  g('imp-result').innerHTML='';
+  g('imp-tbody').innerHTML=impData.slice(0,50).map(r=>'<tr>'+cols.map(c=>`<td style="padding:7px 10px;border-bottom:1px solid var(--border);white-space:nowrap">${r[c]??''}</td>`).join('')+'</tr>').join('');
+  if(impData.length>50) g('imp-tbody').innerHTML+=`<tr><td colspan="${cols.length}" style="padding:8px 10px;color:var(--mu);font-size:.8rem">... 另有 ${impData.length-50} 筆（匯入時全部處理）</td></tr>`;
+  g('imp-preview').style.display='block';g('imp-result').innerHTML='';
 }
-
-function clearImport(){
-  impData=[];
-  g('imp-preview').style.display='none';
-  g('fn-imp').style.display='none';
-}
-
+function clearImport(){impData=[];g('imp-preview').style.display='none';g('fn-imp').style.display='none';}
 async function doImport(){
   if(!impData.length) return;
   setBtnLoad('btn-imp',true,'匯入中...');
@@ -1467,7 +1337,7 @@ async function doImport(){
       const {error}=await db.from('orders').insert(batch);
       if(error){fail+=batch.length;errs.push(error.message);}
       else ok+=batch.length;
-    } catch(e){fail+=batch.length;errs.push(e.message);}
+    }catch(e){fail+=batch.length;errs.push(e.message);}
   }
   setBtnLoad('btn-imp',false,'📥 開始匯入');
   let html=`<div class="btn-ok" style="padding:12px 16px;border-radius:8px;color:white;font-weight:700;margin-bottom:8px">✅ 成功匯入 ${ok} 筆</div>`;
@@ -1475,6 +1345,13 @@ async function doImport(){
   g('imp-result').innerHTML=html;
   if(ok>0) toast(`匯入 ${ok} 筆成功`,'ok');
 }
+
+// ── CLOSE DROPDOWNS ──
+document.addEventListener('click',e=>{
+  ['dd2','dd3'].forEach(id=>{
+    const dd=g(id);if(dd&&!dd.contains(e.target)) dd.style.display='none';
+  });
+});
 
 // ── INIT ──
 document.addEventListener('DOMContentLoaded',()=>{
@@ -1484,6 +1361,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     g('login-screen').style.display='none';
     g('app-screen').style.display='block';
     g('tb-user').textContent=u;
+    loadS1Data();loadS2List();
   }
   setupDZ('dz1',handleFile1);
   setupDZ('dz2',handleFile2);
@@ -1491,14 +1369,9 @@ document.addEventListener('DOMContentLoaded',()=>{
   g('fi1').addEventListener('change',e=>handleFile1(e.target.files[0]));
   g('fi2').addEventListener('change',e=>handleFile2(e.target.files[0]));
   g('fi-imp').addEventListener('change',e=>handleImportFile(e.target.files[0]));
-
-  // 第四階段預設當月（帶出上個月區間）
   const now2=new Date();
   g('s4-month').value=`${now2.getFullYear()}-${String(now2.getMonth()+1).padStart(2,'0')}`;
   updateS4QuickRange();
-
-  // 載入第一階段訂單列表
-  loadS1List();
 });
 </script>
 </body>
