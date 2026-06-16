@@ -641,8 +641,8 @@ function parseShipping(txt){
   if(m) r.po_number=m[1];
   m=txt.match(/(\d{4}\/\d{1,2}\/\d{1,2})/);
   if(m) r.eta=pdate(m[1]);
-  m=txt.match(/(\d{1,3}(?:,\d{3})+)\s*(?:PCS|pcs)/i)
-    ||txt.match(/(\d{1,3}(?:,\d{3})+)\s+Units/i);
+  m=txt.match(/(\d{1,3}(?:,\d{3})*)\s*(?:PCS|pcs)/i)
+    ||txt.match(/(\d{1,3}(?:,\d{3})*)\s+Units/i);
   if(m){r.actual_qty=pnum(m[1]);}
   else{const all=[...txt.matchAll(/\b(\d{1,3}(?:,\d{3})+)\b/g)];if(all.length) r.actual_qty=pnum(all[all.length-1][1]);}
   return r;
