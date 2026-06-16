@@ -471,7 +471,7 @@ tr[style*="opacity:.65"]:hover td{background:transparent!important}
           <div class="sdiv">KTS 貨款入帳</div>
           <div class="fg">
             <div class="field"><label>KTS 貨款入帳日</label><input type="date" id="f4-kd"></div>
-            <div class="field"><label>KTS 入帳金額（USD）</label><input type="number" id="f4-ka" placeholder="0.00" step="0.01" min="0"></div>
+            <div class="field" style="visibility:hidden"></div>
           </div>
           <div class="actions" style="margin-top:12px;padding-top:12px">
             <button class="btn btn-ok" id="bs4-kts" onclick="saveKTS()">💾 儲存KTS入帳資料</button>
@@ -830,7 +830,7 @@ function renderS1List(){
     const actBtns=settled?'':`
       <button class="btn btn-sm btn-out" onclick="event.stopPropagation();loadOrderToS1(${o.id})" title="編輯">✏️</button>
       <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deleteOrder(${o.id},'${o.po_number}')" title="刪除">🗑️</button>
-      <button class="btn btn-sm btn-ok" onclick="event.stopPropagation();confirmSettle(${o.id},'${o.po_number}',${o.total_shipped},${unshipped},'${o.kts_payment_date||''}','${o.tl_payment_date||''}')" title="結清">✅</button>`;
+      <button class="btn btn-sm btn-ok" onclick="event.stopPropagation();confirmSettle(${o.id},'${o.po_number}',${o.order_qty},${o.total_shipped},${unshipped},'${o.kts_payment_date||''}','${o.tl_payment_date||''}')" title="結案">✅ 結案</button>`;
     const rowStyle=settled?'style="opacity:.65"':'';
     const rowClick=settled?'':`onclick="showS1Detail(${o.id})"`;
     return`<tr ${rowStyle} ${rowClick}>
@@ -875,12 +875,12 @@ async function deleteOrder(id,po){
   }catch(e){toast('刪除失敗：'+e.message,'err');}
 }
 
-function confirmSettle(id,po,shipped,unshipped,kts,tl){
-  const msg=`確定要將訂單「${po}」標記為「已結清」？\n\n已出數量：${shipped}\n未出數量：${unshipped}\nKTS入帳日：${kts||'（未填）'}\nTL付款日：${tl||'（未填）'}\n\n結清後將無法在第一至三階段修改。`;
+function confirmSettle(id,po,orderQty,shipped,unshipped,kts,tl){
+  const msg=`確定要將 PO ${po} 結案嗎？\n訂單數量：${orderQty||'—'}，已出數量：${shipped||0}，未出數量：${unshipped||0}\nKTS入帳日：${kts||'（未填）'}，TL付款日：${tl||'（未填）'}\n結案後將標記為已結清，無法再修改。`;
   if(!confirm(msg)) return;
   db.from('orders').update({stage:4,updated_at:now()}).eq('id',id).then(({error})=>{
-    if(error){toast('結清失敗：'+error.message,'err');return;}
-    toast(`${po} 已結清`,'ok');
+    if(error){toast('結案失敗：'+error.message,'err');return;}
+    toast(`${po} 已結案`,'ok');
     loadS1Data();
   });
 }
@@ -1194,7 +1194,6 @@ function selS4Row(id){
   g('ob4-po').textContent=ord.po_number||'—';
   g('ob4-sub').textContent=`送貨單號：${item.shipping_notice_no||'—'} | ETA：${fmtDate(item.eta)} | 出貨金額：USD ${fmtAmt(item.actual_amount_usd)}`;
   g('f4-kd').value=ord.kts_payment_date||'';
-  g('f4-ka').value=ord.kts_payment_amount_usd||'';
   g('f4-tld').value=ord.tl_payment_date||'';
   setRO4(true);
   g('s4-form').style.display='block';
@@ -1205,10 +1204,10 @@ function clearS4Sel(){
   s4SelItem=null;
   g('s4-form').style.display='none';
   document.querySelectorAll('#s4-tbody tr').forEach(r=>r.classList.remove('s4-sel'));
-  ['f4-kd','f4-ka','f4-tld'].forEach(id=>g(id).value='');
+  ['f4-kd','f4-tld'].forEach(id=>g(id).value='');
 }
 function enableEditS4(){setRO4(false);toast('已啟用編輯模式','info');}
-function setRO4(ro){['f4-kd','f4-ka','f4-tld'].forEach(id=>{g(id).readOnly=ro;});}
+function setRO4(ro){['f4-kd','f4-tld'].forEach(id=>{g(id).readOnly=ro;});}
 async function delS4Order(){
   if(!s4SelItem) return;
   const ord=s4SelItem.orders||{};
@@ -1226,15 +1225,12 @@ async function saveKTS(){
   const ord=s4SelItem.orders||{};
   setBtnLoad('bs4-kts',true,'儲存中...');
   const kd=g('f4-kd').value||null;
-  const ka=parseFloat(g('f4-ka').value)||null;
-  const tld=ord.tl_payment_date||g('f4-tld').value||null;
-  const newStage=(kd&&tld)?4:Math.max(ord.stage||1,2);
   try{
-    const {error}=await db.from('orders').update({kts_payment_date:kd,kts_payment_amount_usd:ka,stage:newStage,updated_at:now()}).eq('id',ord.id);
+    const {error}=await db.from('orders').update({kts_payment_date:kd,updated_at:now()}).eq('id',ord.id);
     if(error) throw error;
     g('ss4-kts').textContent=`儲存時間：${new Date().toLocaleString('zh-TW')}`;
-    if(newStage===4){toast(`${ord.po_number} 已結清！`,'ok');clearS4Sel();loadS4();loadS1Data();}
-    else{toast('KTS入帳資料儲存成功','ok');setRO4(true);}
+    toast('KTS入帳日期儲存成功','ok');
+    setRO4(true);
   }catch(e){toast('儲存失敗：'+e.message,'err');}
   finally{setBtnLoad('bs4-kts',false,'💾 儲存KTS入帳資料');}
 }
@@ -1242,19 +1238,13 @@ async function saveTL(){
   if(!s4SelItem){toast('請先選擇記錄','err');return;}
   const ord=s4SelItem.orders||{};
   const tld=g('f4-tld').value||null;
-  const kd=ord.kts_payment_date||g('f4-kd').value||null;
-  const newStage=(kd&&tld)?4:Math.max(ord.stage||1,2);
-  if(newStage===4){
-    const ka=ord.kts_payment_amount_usd!=null?`USD ${ord.kts_payment_amount_usd}`:(g('f4-ka').value?`USD ${g('f4-ka').value}`:'（未填）');
-    if(!confirm(`儲存後，此訂單將標記為「已結清」。\n\nKTS入帳日：${kd||'（未填）'}\nKTS金額：${ka}\nTL付款日：${tld||'（未填）'}\n\n確認無誤嗎？`)) return;
-  }
   setBtnLoad('bs4-tl',true,'儲存中...');
   try{
-    const {error}=await db.from('orders').update({tl_payment_date:tld,stage:newStage,updated_at:now()}).eq('id',ord.id);
+    const {error}=await db.from('orders').update({tl_payment_date:tld,updated_at:now()}).eq('id',ord.id);
     if(error) throw error;
     g('ss4-tl').textContent=`儲存時間：${new Date().toLocaleString('zh-TW')}`;
-    if(newStage===4){toast(`${ord.po_number} 已結清！`,'ok');clearS4Sel();loadS4();loadS1Data();}
-    else{toast('TL付款日期儲存成功','ok');setRO4(true);}
+    toast('TL付款日期儲存成功','ok');
+    setRO4(true);
   }catch(e){toast('儲存失敗：'+e.message,'err');}
   finally{setBtnLoad('bs4-tl',false,'💾 儲存TL付款日期');}
 }
