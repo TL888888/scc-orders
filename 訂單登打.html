@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
@@ -192,6 +192,13 @@ body{font-family:'Segoe UI','Microsoft JhengHei',Arial,sans-serif;background:var
 /* S1 list action btns compact */
 .act-btns{display:flex;gap:4px;white-space:nowrap}
 tr[style*="opacity:.65"]:hover td{background:transparent!important}
+/* Ship detail table */
+.ship-detail-tbl{width:100%;border-collapse:collapse;font-size:.82rem}
+.ship-detail-tbl th{background:#f8fafc;padding:8px 10px;text-align:left;font-size:.72rem;font-weight:700;color:var(--mu);text-transform:uppercase;border-bottom:1px solid var(--border);white-space:nowrap}
+.ship-detail-tbl td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+.ship-detail-tbl tr:last-child td{border-bottom:none}
+.cell-inp{padding:4px 7px;border:1.5px solid var(--pri-l);border-radius:6px;font-size:.8rem;font-family:inherit;color:var(--tx);background:#fff}
+.settle-bar{display:flex;align-items:center;gap:16px;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)}
 
 @media(max-width:640px){
   .fg,.fg3{grid-template-columns:1fr}
@@ -462,28 +469,26 @@ tr[style*="opacity:.65"]:hover td{background:transparent!important}
               <div id="ob4-po" style="font-weight:800;color:var(--pri);font-size:1rem"></div>
               <div id="ob4-sub" style="font-size:.8rem;color:var(--mu);margin-top:2px"></div>
             </div>
-            <div style="display:flex;gap:8px">
-              <button class="btn btn-out btn-sm" id="ob4-edit" onclick="enableEditS4()">✏️ 修改</button>
-              <button class="btn btn-danger btn-sm" id="ob4-del" onclick="delS4Order()">🗑️ 刪除</button>
-              <button class="btn btn-gh btn-sm" onclick="clearS4Sel()">✕ 取消</button>
-            </div>
+            <button class="btn btn-gh btn-sm" onclick="clearS4Sel()">✕ 取消／重新選擇</button>
           </div>
           <div class="sdiv">KTS 貨款入帳</div>
-          <div class="fg">
-            <div class="field"><label>KTS 貨款入帳日</label><input type="date" id="f4-kd"></div>
-            <div class="field" style="visibility:hidden"></div>
+          <div style="display:flex;align-items:flex-end;gap:10px">
+            <div class="field" style="flex:1"><label>KTS 貨款入帳日</label><input type="date" id="f4-kd" readonly></div>
+            <button class="btn btn-out btn-sm" onclick="enableS4Edit('f4-kd','s4-kts-save')" style="margin-bottom:2px">✏️ 修改</button>
           </div>
-          <div class="actions" style="margin-top:12px;padding-top:12px">
-            <button class="btn btn-ok" id="bs4-kts" onclick="saveKTS()">💾 儲存KTS入帳資料</button>
+          <div id="s4-kts-save" style="display:none" class="actions" style="margin-top:12px;padding-top:12px">
+            <button class="btn btn-ok btn-sm" id="bs4-kts" onclick="saveKTS()">💾 儲存KTS入帳日期</button>
+            <button class="btn btn-gh btn-sm" onclick="cancelS4Edit('f4-kd','s4-kts-save')">✕ 取消</button>
             <span id="ss4-kts" style="font-size:.85rem;color:var(--mu)"></span>
           </div>
           <div class="sdiv" style="margin-top:24px">TL 支付深南</div>
-          <div class="fg">
-            <div class="field"><label>TL 支付深南日期</label><input type="date" id="f4-tld"></div>
-            <div class="field" style="visibility:hidden"></div>
+          <div style="display:flex;align-items:flex-end;gap:10px">
+            <div class="field" style="flex:1"><label>TL 支付深南日期</label><input type="date" id="f4-tld" readonly></div>
+            <button class="btn btn-out btn-sm" onclick="enableS4Edit('f4-tld','s4-tl-save')" style="margin-bottom:2px">✏️ 修改</button>
           </div>
-          <div class="actions" style="margin-top:12px;padding-top:12px">
-            <button class="btn btn-ok" id="bs4-tl" onclick="saveTL()">💾 儲存TL付款日期</button>
+          <div id="s4-tl-save" style="display:none" class="actions" style="margin-top:12px;padding-top:12px">
+            <button class="btn btn-ok btn-sm" id="bs4-tl" onclick="saveTL()">💾 儲存TL付款日期</button>
+            <button class="btn btn-gh btn-sm" onclick="cancelS4Edit('f4-tld','s4-tl-save')">✕ 取消</button>
             <span id="ss4-tl" style="font-size:.85rem;color:var(--mu)"></span>
           </div>
         </div>
@@ -771,14 +776,14 @@ async function saveS1(){
 
 async function loadS1Data(){
   const {data:orders,error:oErr}=await db.from('orders')
-    .select('id,po_number,order_date,etd,order_qty,unit_price,amount_usd,stage,kts_payment_date,kts_payment_amount_usd,tl_payment_date')
+    .select('id,po_number,order_date,etd,order_qty,unit_price,amount_usd,stage')
     .order('created_at',{ascending:false});
   if(oErr){toast('列表載入失敗','err');return;}
   const ids=(orders||[]).map(o=>o.id);
   let shipMap={};
   if(ids.length){
     const {data:ships,error:sErr}=await db.from('shipments')
-      .select('id,order_id,shipping_notice_no,eta,actual_qty,actual_amount_usd,customs_fee,trade_promotion_fee')
+      .select('id,order_id,shipping_notice_no,eta,actual_qty,actual_amount_usd,customs_fee,trade_promotion_fee,kts_payment_date,tl_payment_date')
       .in('order_id',ids);
     if(sErr){
       if(sErr.message&&sErr.message.includes('does not exist')){
@@ -830,10 +835,10 @@ function renderS1List(){
     const actBtns=settled?'':`
       <button class="btn btn-sm btn-out" onclick="event.stopPropagation();loadOrderToS1(${o.id})" title="編輯">✏️</button>
       <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deleteOrder(${o.id},'${o.po_number}')" title="刪除">🗑️</button>
-      <button class="btn btn-sm btn-ok" onclick="event.stopPropagation();confirmSettle(${o.id},'${o.po_number}',${o.order_qty},${o.total_shipped},${unshipped},'${o.kts_payment_date||''}','${o.tl_payment_date||''}')" title="結案">✅ 結案</button>`;
+      <button class="btn btn-sm btn-ok" onclick="event.stopPropagation();openSettleModal(${o.id})" title="結案">✅ 結案</button>`;
     const rowStyle=settled?'style="opacity:.65"':'';
-    const rowClick=settled?'':`onclick="showS1Detail(${o.id})"`;
-    return`<tr ${rowStyle} ${rowClick}>
+
+    return`<tr ${rowStyle} onclick="showS1Detail(${o.id})">
       <td>${fmtDate(o.order_date)}</td>
       <td><strong>${o.po_number}</strong></td>
       <td>${o.order_qty!=null?Number(o.order_qty).toLocaleString('zh-TW'):'—'}</td>
@@ -875,55 +880,137 @@ async function deleteOrder(id,po){
   }catch(e){toast('刪除失敗：'+e.message,'err');}
 }
 
-function confirmSettle(id,po,orderQty,shipped,unshipped,kts,tl){
-  const msg=`確定要將 PO ${po} 結案嗎？\n訂單數量：${orderQty||'—'}，已出數量：${shipped||0}，未出數量：${unshipped||0}\nKTS入帳日：${kts||'（未填）'}，TL付款日：${tl||'（未填）'}\n結案後將標記為已結清，無法再修改。`;
+function openSettleModal(id){
+  const o=s1Orders.find(x=>x.id===id);
+  if(!o) return;
+  const ships=o.shipments||[];
+  const totalShipped=ships.reduce((a,s)=>a+(parseInt(s.actual_qty)||0),0);
+  const unshipped=Math.max(0,(parseInt(o.order_qty)||0)-totalShipped);
+  const shipStatus=ships.length?
+    ships.map(s=>`  ${s.shipping_notice_no||'—'}：KTS ${s.kts_payment_date||'未填'}，TL ${s.tl_payment_date||'未填'}`).join('\n')
+    :'  無出貨記錄';
+  const msg=`確定要將 PO ${o.po_number} 結案嗎？\n訂單數量：${o.order_qty||'—'}，已出數量：${totalShipped}，未出數量：${unshipped}\n各筆出貨之KTS/TL付款狀態：\n${shipStatus}\n結案後將標記為已結清，無法再修改。`;
   if(!confirm(msg)) return;
   db.from('orders').update({stage:4,updated_at:now()}).eq('id',id).then(({error})=>{
     if(error){toast('結案失敗：'+error.message,'err');return;}
-    toast(`${po} 已結案`,'ok');
-    loadS1Data();
+    toast(`${o.po_number} 已結案`,'ok');
+    loadS1Data().then(()=>{s1DetailId=null;showS1Detail(id);});
   });
 }
 
 function showS1Detail(id){
   if(s1DetailId===id){hideS1Detail();return;}
   s1DetailId=id;
-  const o=s1Orders.find(x=>x.id===id);
-  if(!o) return;
-  g('s1-detail-title').textContent=`訂單詳情：${o.po_number}`;
-  const ships=o.shipments||[];
-  const shipsHtml=ships.length?`
-    <table class="tbl-s4" style="margin-top:8px">
-      <thead><tr><th>送貨單號</th><th>ETA</th><th>出貨數量</th><th>出貨金額(USD)</th><th>報關費(NTD)</th><th>推貿費(NTD)</th></tr></thead>
-      <tbody>${ships.map(s=>`<tr>
-        <td>${s.shipping_notice_no||'—'}</td>
-        <td>${fmtDate(s.eta)}</td>
-        <td>${s.actual_qty!=null?Number(s.actual_qty).toLocaleString('zh-TW'):'—'}</td>
-        <td>$${fmtAmt(s.actual_amount_usd)}</td>
-        <td>${s.customs_fee!=null?Number(s.customs_fee).toLocaleString('zh-TW'):'—'}</td>
-        <td>${s.trade_promotion_fee!=null?Number(s.trade_promotion_fee).toLocaleString('zh-TW'):'—'}</td>
-      </tr>`).join('')}</tbody>
-    </table>`:'<p style="color:var(--mu);font-size:.85rem;padding:8px 0">尚無出貨記錄</p>';
-  g('s1-detail-body').innerHTML=`
-    <div class="fg" style="margin-bottom:16px">
-      <div class="field"><label>PO 號碼</label><input class="detail-ro" readonly value="${o.po_number||''}"></div>
-      <div class="field"><label>狀態</label><input class="detail-ro" readonly value="${SL[o.stage]||''}"></div>
-      <div class="field"><label>訂單日期</label><input class="detail-ro" readonly value="${fmtDate(o.order_date)}"></div>
-      <div class="field"><label>ETD</label><input class="detail-ro" readonly value="${fmtDate(o.etd)}"></div>
-      <div class="field"><label>訂單數量</label><input class="detail-ro" readonly value="${o.order_qty!=null?Number(o.order_qty).toLocaleString('zh-TW'):''}"></div>
-      <div class="field"><label>單價(USD)</label><input class="detail-ro" readonly value="${o.unit_price!=null?Number(o.unit_price).toFixed(4):''}"></div>
-      <div class="field s2"><label>訂單金額(USD)</label><input class="detail-ro" readonly value="${o.amount_usd!=null?'$'+fmtAmt(o.amount_usd):''}"></div>
-      <div class="field"><label>KTS入帳日</label><input class="detail-ro" readonly value="${fmtDate(o.kts_payment_date)}"></div>
-      <div class="field"><label>KTS入帳金額(USD)</label><input class="detail-ro" readonly value="${o.kts_payment_amount_usd!=null?'$'+fmtAmt(o.kts_payment_amount_usd):''}"></div>
-      <div class="field"><label>TL付款日</label><input class="detail-ro" readonly value="${fmtDate(o.tl_payment_date)}"></div>
-    </div>
-    <div style="font-size:.8rem;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">出貨記錄（共 ${ships.length} 筆，已出 ${o.total_shipped} 件）</div>
-    ${shipsHtml}`;
-  g('s1-detail').style.display='block';
-  g('s1-detail').scrollIntoView({behavior:'smooth',block:'nearest'});
+  renderDetailCard(id);
 }
 function hideS1Detail(){g('s1-detail').style.display='none';s1DetailId=null;}
 
+function renderDetailCard(id){
+  const o=s1Orders.find(x=>x.id===id);
+  if(!o) return;
+  const settled=o.stage===4;
+  const ships=o.shipments||[];
+  const totalShipped=ships.reduce((a,s)=>a+(parseInt(s.actual_qty)||0),0);
+  const unshipped=Math.max(0,(parseInt(o.order_qty)||0)-totalShipped);
+  g('s1-detail-title').textContent=`訂單詳情：${o.po_number}`;
+  const infoHtml=`<div class="fg" style="margin-bottom:16px">
+    <div class="field"><label>PO 號碼</label><input class="detail-ro" readonly value="${o.po_number||''}"></div>
+    <div class="field"><label>狀態</label><input class="detail-ro" readonly value="${SL[o.stage]||''}"></div>
+    <div class="field"><label>訂單日期</label><input class="detail-ro" readonly value="${fmtDate(o.order_date)}"></div>
+    <div class="field"><label>ETD</label><input class="detail-ro" readonly value="${fmtDate(o.etd)}"></div>
+    <div class="field"><label>訂單數量</label><input class="detail-ro" readonly value="${o.order_qty!=null?Number(o.order_qty).toLocaleString('zh-TW'):''}"></div>
+    <div class="field"><label>單價(USD)</label><input class="detail-ro" readonly value="${o.unit_price!=null?Number(o.unit_price).toFixed(4):''}"></div>
+    <div class="field s2"><label>訂單金額(USD)</label><input class="detail-ro" readonly value="${o.amount_usd!=null?'$'+fmtAmt(o.amount_usd):''}"></div>
+  </div>`;
+  const shipsHdr=`<div style="font-size:.8rem;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.5px;margin:4px 0 8px">出貨記錄（共 ${ships.length} 筆，已出 ${totalShipped} 件，未出 ${unshipped} 件）</div>`;
+  let shipsHtml;
+  if(!ships.length){
+    shipsHtml='<p style="color:var(--mu);font-size:.85rem;padding:8px 0">尚無出貨記錄</p>';
+  }else{
+    shipsHtml=`<div style="overflow-x:auto;border:1px solid var(--border);border-radius:10px">
+      <table class="ship-detail-tbl">
+        <thead><tr><th>送貨單號</th><th>ETA</th><th>出貨數量</th><th>出貨金額(USD)</th><th>報關費(NTD)</th><th>推貿費(NTD)</th><th>KTS入帳日</th><th>TL付款日</th>${settled?'':'<th></th>'}</tr></thead>
+        <tbody>${ships.map(s=>buildShipRow(s,settled,o.id)).join('')}</tbody>
+      </table></div>`;
+  }
+  const settleHtml=settled?
+    `<div class="settle-bar"><span style="font-size:.9rem;color:var(--mu)">狀態：<strong style="color:#6d28d9">已結清</strong></span></div>`:
+    `<div class="settle-bar"><span style="font-size:.9rem;color:var(--mu)">狀態：<strong style="color:var(--tx)">未結清</strong></span><button class="btn btn-ok btn-sm" onclick="openSettleModal(${o.id})">✅ 結案</button></div>`;
+  g('s1-detail-body').innerHTML=infoHtml+shipsHdr+shipsHtml+settleHtml;
+  g('s1-detail').style.background=settled?'#f8fafc':'';
+  g('s1-detail').style.display='block';
+  g('s1-detail').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function buildShipRow(s,settled,orderId){
+  const cf=s.customs_fee!=null?Number(s.customs_fee).toLocaleString('zh-TW'):'0';
+  const tpf=s.trade_promotion_fee!=null?Number(s.trade_promotion_fee).toLocaleString('zh-TW'):'0';
+  const kd=fmtDate(s.kts_payment_date);
+  const tld=fmtDate(s.tl_payment_date);
+  if(settled)return`<tr><td>${s.shipping_notice_no||'—'}</td><td>${fmtDate(s.eta)}</td><td>${s.actual_qty!=null?Number(s.actual_qty).toLocaleString('zh-TW'):'—'}</td><td>$${fmtAmt(s.actual_amount_usd)}</td><td>${cf}</td><td>${tpf}</td><td>${kd}</td><td>${tld}</td></tr>`;
+  const snEsc=(s.shipping_notice_no||'').replace(/'/g,"\\'");
+  return`<tr id="sr-${s.id}">
+    <td>${s.shipping_notice_no||'—'}</td>
+    <td>${fmtDate(s.eta)}</td>
+    <td>${s.actual_qty!=null?Number(s.actual_qty).toLocaleString('zh-TW'):'—'}</td>
+    <td>$${fmtAmt(s.actual_amount_usd)}</td>
+    <td><span id="sv-cf-${s.id}">${cf}</span><input id="ei-cf-${s.id}" class="cell-inp" type="number" value="${s.customs_fee||0}" step="1" min="0" style="display:none;width:80px"></td>
+    <td><span id="sv-tpf-${s.id}">${tpf}</span><input id="ei-tpf-${s.id}" class="cell-inp" type="number" value="${s.trade_promotion_fee||0}" step="1" min="0" style="display:none;width:80px"></td>
+    <td><span id="sv-kd-${s.id}">${kd}</span><input id="ei-kd-${s.id}" class="cell-inp" type="date" value="${s.kts_payment_date||''}" style="display:none;width:128px"></td>
+    <td><span id="sv-tld-${s.id}">${tld}</span><input id="ei-tld-${s.id}" class="cell-inp" type="date" value="${s.tl_payment_date||''}" style="display:none;width:128px"></td>
+    <td>
+      <div class="act-btns" id="sv-btns-${s.id}">
+        <button class="btn btn-sm btn-out" onclick="toggleShipEdit(${s.id},true)" title="編輯">✏️</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteShipment(${s.id},${orderId},'${snEsc}')">🗑️</button>
+      </div>
+      <div style="display:none" id="ed-btns-${s.id}" class="act-btns">
+        <button class="btn btn-sm btn-ok" onclick="saveShipEdit(${s.id},${orderId})">💾</button>
+        <button class="btn btn-sm btn-gh" onclick="toggleShipEdit(${s.id},false)">✕</button>
+      </div>
+    </td>
+  </tr>`;
+}
+
+function toggleShipEdit(sid,editing){
+  ['cf','tpf','kd','tld'].forEach(f=>{
+    const sv=g(`sv-${f}-${sid}`);const ei=g(`ei-${f}-${sid}`);
+    if(sv)sv.style.display=editing?'none':'';
+    if(ei)ei.style.display=editing?'':'none';
+  });
+  const svb=g(`sv-btns-${sid}`);const edb=g(`ed-btns-${sid}`);
+  if(svb)svb.style.display=editing?'none':'';
+  if(edb)edb.style.display=editing?'':'none';
+}
+
+async function saveShipEdit(sid,orderId){
+  const cf=parseInt(g(`ei-cf-${sid}`)?.value)||0;
+  const tpf=parseInt(g(`ei-tpf-${sid}`)?.value)||0;
+  const kd=g(`ei-kd-${sid}`)?.value||null;
+  const tld=g(`ei-tld-${sid}`)?.value||null;
+  try{
+    const {error}=await db.from('shipments').update({customs_fee:cf,trade_promotion_fee:tpf,kts_payment_date:kd,tl_payment_date:tld,updated_at:now()}).eq('id',sid);
+    if(error) throw error;
+    if(cf>0){
+      const {data:ord}=await db.from('orders').select('stage').eq('id',orderId).single();
+      const ns=Math.max(ord?.stage||1,3);
+      await db.from('orders').update({stage:ns,updated_at:now()}).eq('id',orderId);
+    }
+    toast('出貨記錄已更新','ok');
+    await loadS1Data();
+    s1DetailId=null;showS1Detail(orderId);
+  }catch(e){toast('儲存失敗：'+e.message,'err');}
+}
+
+async function deleteShipment(sid,orderId,sn){
+  if(!confirm(`確定要刪除送貨單「${sn||sid}」？此操作無法復原。`)) return;
+  try{
+    const {error}=await db.from('shipments').delete().eq('id',sid);
+    if(error) throw error;
+    toast('出貨記錄已刪除','ok');
+    await loadS1Data();
+    s1DetailId=null;showS1Detail(orderId);
+  }catch(e){toast('刪除失敗：'+e.message,'err');}
+}
 // ── STAGE 2 ──
 function calc2(){
   const q=parseFloat(g('f2-aq').value)||0;
@@ -1044,22 +1131,26 @@ function doSearch3(){clearTimeout(s3tmr.t);s3tmr.t=setTimeout(runSearch3,300);}
 async function runSearch3(){
   const q=g('sr3').value.trim();
   const dd=g('dd3');
-  const {data,error}=await db.from('shipments')
-    .select('id,order_id,shipping_notice_no,eta,customs_fee,orders(id,po_number,stage)')
-    .or('customs_fee.is.null,customs_fee.eq.0');
-  if(error){dd.innerHTML='<div style="padding:16px;color:var(--mu);text-align:center">查詢失敗</div>';dd.style.display='block';return;}
-  const filtered=(data||[]).filter(s=>{
-    const ord=s.orders||{};
-    if(ord.stage>=4) return false;
-    if(q&&!ord.po_number?.toLowerCase().includes(q.toLowerCase())) return false;
-    return true;
-  });
-  if(!filtered.length){
-    dd.innerHTML='<div style="padding:16px;color:var(--mu);text-align:center;font-size:.875rem">找不到符合記錄</div>';
+  if(!q){dd.style.display='none';return;}
+  const {data:ords,error:oErr}=await db.from('orders')
+    .select('id,po_number,stage').ilike('po_number',`%${q}%`).lt('stage',4);
+  if(oErr){dd.innerHTML='<div style="padding:16px;color:var(--mu);text-align:center">查詢失敗</div>';dd.style.display='block';return;}
+  if(!ords?.length){
+    dd.innerHTML='<div style="padding:16px;color:var(--mu);text-align:center;font-size:.875rem">找不到符合訂單</div>';
     dd.style.display='block';return;
   }
-  dd.innerHTML=filtered.slice(0,10).map(s=>{
-    const ord=s.orders||{};
+  const ordMap=Object.fromEntries(ords.map(o=>[o.id,o]));
+  const {data:ships,error:sErr}=await db.from('shipments')
+    .select('id,order_id,shipping_notice_no,eta,customs_fee')
+    .in('order_id',ords.map(o=>o.id))
+    .or('customs_fee.is.null,customs_fee.eq.0');
+  if(sErr){dd.innerHTML='<div style="padding:16px;color:var(--mu);text-align:center">查詢失敗</div>';dd.style.display='block';return;}
+  if(!ships?.length){
+    dd.innerHTML='<div style="padding:16px;color:var(--mu);text-align:center;font-size:.875rem">找不到未填報關費的出貨記錄</div>';
+    dd.style.display='block';return;
+  }
+  dd.innerHTML=ships.slice(0,10).map(s=>{
+    const ord=ordMap[s.order_id]||{};
     return`<div class="si-item" onclick="selShipment3(${s.id},${ord.id||0},'${ord.po_number||''}','${s.shipping_notice_no||''}','${s.eta||''}')">
       <div>
         <div class="po">${ord.po_number||'—'}</div>
@@ -1147,7 +1238,7 @@ async function loadS4(){
   }
   const po=g('s4-po').value.trim();
   let q=db.from('shipments')
-    .select('id,shipping_notice_no,eta,actual_qty,actual_amount_usd,order_id,orders(id,po_number,stage,unit_price,kts_payment_date,kts_payment_amount_usd,tl_payment_date)')
+    .select('id,shipping_notice_no,eta,actual_qty,actual_amount_usd,kts_payment_date,tl_payment_date,order_id,orders(id,po_number,stage,unit_price)')
     .gte('eta',fromDate).lte('eta',toDate);
   const {data,error}=await q;
   if(error){toast('查詢失敗：'+error.message,'err');return;}
@@ -1193,9 +1284,10 @@ function selS4Row(id){
   const ord=item.orders||{};
   g('ob4-po').textContent=ord.po_number||'—';
   g('ob4-sub').textContent=`送貨單號：${item.shipping_notice_no||'—'} | ETA：${fmtDate(item.eta)} | 出貨金額：USD ${fmtAmt(item.actual_amount_usd)}`;
-  g('f4-kd').value=ord.kts_payment_date||'';
-  g('f4-tld').value=ord.tl_payment_date||'';
-  setRO4(true);
+  g('f4-kd').value=item.kts_payment_date||'';
+  g('f4-tld').value=item.tl_payment_date||'';
+  g('f4-kd').readOnly=true;g('f4-tld').readOnly=true;
+  g('s4-kts-save').style.display='none';g('s4-tl-save').style.display='none';
   g('s4-form').style.display='block';
   g('ss4-kts').textContent='';g('ss4-tl').textContent='';
   toast(`已載入：${ord.po_number}`,'info');
@@ -1204,47 +1296,50 @@ function clearS4Sel(){
   s4SelItem=null;
   g('s4-form').style.display='none';
   document.querySelectorAll('#s4-tbody tr').forEach(r=>r.classList.remove('s4-sel'));
-  ['f4-kd','f4-tld'].forEach(id=>g(id).value='');
+  g('f4-kd').value='';g('f4-kd').readOnly=true;
+  g('f4-tld').value='';g('f4-tld').readOnly=true;
+  if(g('s4-kts-save')) g('s4-kts-save').style.display='none';
+  if(g('s4-tl-save')) g('s4-tl-save').style.display='none';
 }
-function enableEditS4(){setRO4(false);toast('已啟用編輯模式','info');}
-function setRO4(ro){['f4-kd','f4-tld'].forEach(id=>{g(id).readOnly=ro;});}
-async function delS4Order(){
-  if(!s4SelItem) return;
-  const ord=s4SelItem.orders||{};
-  if(!confirm(`確定要刪除訂單「${ord.po_number}」及其所有出貨記錄？`)) return;
-  try{
-    await db.from('shipments').delete().eq('order_id',ord.id);
-    const {error}=await db.from('orders').delete().eq('id',ord.id);
-    if(error) throw error;
-    toast(`${ord.po_number} 已刪除`,'ok');
-    clearS4Sel();loadS4();loadS1Data();
-  }catch(e){toast('刪除失敗：'+e.message,'err');}
+function enableS4Edit(inputId,saveId){
+  g(inputId).readOnly=false;
+  g(inputId).focus();
+  g(saveId).style.display='';
+}
+function cancelS4Edit(inputId,saveId){
+  if(s4SelItem){
+    g(inputId).value=(inputId==='f4-kd'?s4SelItem.kts_payment_date:s4SelItem.tl_payment_date)||'';
+  }
+  g(inputId).readOnly=true;
+  g(saveId).style.display='none';
 }
 async function saveKTS(){
   if(!s4SelItem){toast('請先選擇記錄','err');return;}
-  const ord=s4SelItem.orders||{};
   setBtnLoad('bs4-kts',true,'儲存中...');
   const kd=g('f4-kd').value||null;
   try{
-    const {error}=await db.from('orders').update({kts_payment_date:kd,updated_at:now()}).eq('id',ord.id);
+    const {error}=await db.from('shipments').update({kts_payment_date:kd,updated_at:now()}).eq('id',s4SelItem.id);
     if(error) throw error;
-    g('ss4-kts').textContent=`儲存時間：${new Date().toLocaleString('zh-TW')}`;
+    s4SelItem.kts_payment_date=kd;
+    g('ss4-kts').textContent=`儲存：${new Date().toLocaleString('zh-TW')}`;
+    g('f4-kd').readOnly=true;
+    g('s4-kts-save').style.display='none';
     toast('KTS入帳日期儲存成功','ok');
-    setRO4(true);
   }catch(e){toast('儲存失敗：'+e.message,'err');}
-  finally{setBtnLoad('bs4-kts',false,'💾 儲存KTS入帳資料');}
+  finally{setBtnLoad('bs4-kts',false,'💾 儲存KTS入帳日期');}
 }
 async function saveTL(){
   if(!s4SelItem){toast('請先選擇記錄','err');return;}
-  const ord=s4SelItem.orders||{};
-  const tld=g('f4-tld').value||null;
   setBtnLoad('bs4-tl',true,'儲存中...');
+  const tld=g('f4-tld').value||null;
   try{
-    const {error}=await db.from('orders').update({tl_payment_date:tld,updated_at:now()}).eq('id',ord.id);
+    const {error}=await db.from('shipments').update({tl_payment_date:tld,updated_at:now()}).eq('id',s4SelItem.id);
     if(error) throw error;
-    g('ss4-tl').textContent=`儲存時間：${new Date().toLocaleString('zh-TW')}`;
+    s4SelItem.tl_payment_date=tld;
+    g('ss4-tl').textContent=`儲存：${new Date().toLocaleString('zh-TW')}`;
+    g('f4-tld').readOnly=true;
+    g('s4-tl-save').style.display='none';
     toast('TL付款日期儲存成功','ok');
-    setRO4(true);
   }catch(e){toast('儲存失敗：'+e.message,'err');}
   finally{setBtnLoad('bs4-tl',false,'💾 儲存TL付款日期');}
 }
