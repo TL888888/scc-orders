@@ -635,16 +635,20 @@ function parseOrder(txt){
 // ── PARSE SHIPPING PDF ──
 function parseShipping(txt){
   const r={};let m;
+  console.log('[parseShipping] raw text (first 500):', JSON.stringify(txt.substring(0,500)));
   m=txt.match(/([A-Z]{2,5}\d{6,8}-\d+)/i);
   if(m) r.shipping_notice_no=m[1].toUpperCase();
   m=txt.match(/(?<![A-Z0-9-])(\d{7})(?![A-Z0-9-])/i);
   if(m) r.po_number=m[1];
   m=txt.match(/(\d{4}\/\d{1,2}\/\d{1,2})/);
   if(m) r.eta=pdate(m[1]);
-  m=txt.match(/(\d{1,3}(?:,\d{3})*)\s*(?:PCS|pcs)/i)
-    ||txt.match(/(\d{1,3}(?:,\d{3})*)\s+Units/i);
+  const qm1=txt.match(/(?<![A-Z0-9-])(\d[\d,]{0,10})\s*PCS\b/i);
+  const qm2=txt.match(/(?<![A-Z0-9-])(\d[\d,]{0,10})\s+Units\b/i);
+  m=qm1||qm2;
+  console.log('[parseShipping] qm1:', qm1&&qm1[0], 'qm2:', qm2&&qm2[0], 'actual_qty raw:', m&&m[1]);
   if(m){r.actual_qty=pnum(m[1]);}
   else{const all=[...txt.matchAll(/\b(\d{1,3}(?:,\d{3})+)\b/g)];if(all.length) r.actual_qty=pnum(all[all.length-1][1]);}
+  console.log('[parseShipping] result:', JSON.stringify(r));
   return r;
 }
 
