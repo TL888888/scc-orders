@@ -6,7 +6,6 @@
 <title>訂單登打系統</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -257,7 +256,6 @@ tr[style*="opacity:.65"]:hover td{background:transparent!important}
     <button class="snb" data-s="2" onclick="switchStage(2)"><span class="num">2</span>出貨資料</button>
     <button class="snb" data-s="3" onclick="switchStage(3)"><span class="num">3</span>進口費用</button>
     <button class="snb" data-s="4" onclick="switchStage(4)"><span class="num">4</span>應收帳款</button>
-    <button class="snb" data-s="5" onclick="switchStage(5)"><span class="num">📥</span>批次匯入</button>
   </nav>
 
   <div class="content">
@@ -494,35 +492,6 @@ tr[style*="opacity:.65"]:hover td{background:transparent!important}
         </div>
       </div>
     </div>
-
-    <!-- STAGE 5: IMPORT -->
-    <div class="stage-panel" id="p5">
-      <div class="card">
-        <div class="card-hd"><div class="card-title"><div class="card-icon">📥</div>批次匯入歷史資料（Excel）</div></div>
-        <div class="dz" id="dz-imp">
-          <input type="file" accept=".xlsx,.xls,.csv" id="fi-imp">
-          <div class="dz-icon">📊</div>
-          <div class="dz-text">拖曳 Excel 或 CSV 檔案到此處，或 <strong>點擊選擇檔案</strong></div>
-          <div class="dz-fn" id="fn-imp"></div>
-        </div>
-        <div id="imp-preview" style="display:none">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-            <span id="imp-count" style="font-size:.9rem;font-weight:700;color:var(--pri)"></span>
-            <div style="display:flex;gap:8px">
-              <button class="btn btn-gh btn-sm" onclick="clearImport()">✕ 清除</button>
-              <button class="btn btn-ok" onclick="doImport()" id="btn-imp">📥 開始匯入</button>
-            </div>
-          </div>
-          <div style="overflow-x:auto;border:1px solid var(--border);border-radius:10px;max-height:400px;overflow-y:auto">
-            <table style="width:100%;border-collapse:collapse;font-size:.8rem" id="imp-table">
-              <thead id="imp-thead" style="background:#f8fafc;position:sticky;top:0"></thead>
-              <tbody id="imp-tbody"></tbody>
-            </table>
-          </div>
-          <div id="imp-result" style="margin-top:16px"></div>
-        </div>
-      </div>
-    </div>
   </div>
 </div>
 
@@ -541,7 +510,6 @@ let s1Orders=[],s1Filter='all',s1EditingId=null,s1DetailId=null;
 let s2SelectedOrder=null;
 let s3SelectedShipment=null;
 let s4Mode='quick',s4List=[],s4SelItem=null;
-let impData=[];
 
 // ── AUTH ──
 function doLogin(){
@@ -1348,93 +1316,6 @@ async function saveTL(){
   finally{setBtnLoad('bs4-tl',false,'💾 儲存TL付款日期');}
 }
 
-// ── IMPORT EXCEL ──
-const COL_MAP={
-  'po號碼':'po_number','po_number':'po_number','po':'po_number',
-  '訂單日期':'order_date','order_date':'order_date','date':'order_date',
-  '訂單數量':'order_qty','order_qty':'order_qty','qty':'order_qty','quantity':'order_qty',
-  '單價':'unit_price','unit_price':'unit_price','price':'unit_price',
-  '訂單金額usd':'amount_usd','order_amount_usd':'amount_usd','amount_usd':'amount_usd','訂單金額':'amount_usd',
-  'etd':'etd',
-  'etc發票日期':'etc_invoice_date','etc_invoice_date':'etc_invoice_date','發票日期':'etc_invoice_date',
-  'eta':'eta',
-  '貨代清關日期':'customs_agent_date','customs_agent_date':'customs_agent_date',
-  '報關費':'customs_fee','customs_fee':'customs_fee','報關費ntd':'customs_fee',
-  '推貿費':'trade_promotion_fee','trade_promotion_fee':'trade_promotion_fee','推貿費ntd':'trade_promotion_fee',
-  '客戶簽收日期':'customer_signed_date','customer_signed_date':'customer_signed_date',
-  '對帳單日期':'monthly_statement_date','monthly_statement_date':'monthly_statement_date',
-  '轉進貨單日期':'transfer_receipt_date','transfer_receipt_date':'transfer_receipt_date',
-  '入庫日期':'warehouse_in_date','warehouse_in_date':'warehouse_in_date',
-  '扣帳日期':'deduction_date','deduction_date':'deduction_date',
-  'kts入帳日':'kts_payment_date','kts_payment_date':'kts_payment_date','kts貨款入帳日':'kts_payment_date',
-  'tl支付深南日期':'tl_payment_date','tl_payment_date':'tl_payment_date','tl支付日期':'tl_payment_date'
-};
-const DATE_FIELDS=new Set(['etd','etc_invoice_date','eta','customs_agent_date','customer_signed_date','monthly_statement_date','transfer_receipt_date','warehouse_in_date','deduction_date','kts_payment_date','tl_payment_date']);
-const NUM_FIELDS=new Set(['amount_usd','customs_fee','trade_promotion_fee']);
-
-function excelDateToStr(v){
-  if(typeof v==='string') return v;
-  if(typeof v==='number'){const d=new Date(Math.round((v-25569)*86400*1000));return d.toISOString().slice(0,10);}
-  if(v instanceof Date) return v.toISOString().slice(0,10);
-  return '';
-}
-async function handleImportFile(file){
-  g('fn-imp').style.display='block';g('fn-imp').textContent=`⏳ 解析 ${file.name}...`;
-  try{
-    const buf=await file.arrayBuffer();
-    const wb=XLSX.read(buf,{type:'array',cellDates:true});
-    const ws=wb.Sheets[wb.SheetNames[0]];
-    const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
-    if(!rows.length){toast('Excel 無資料','err');return;}
-    const mapped=rows.map(row=>{
-      const rec={};
-      for(const [k,v] of Object.entries(row)){
-        const norm=k.trim().toLowerCase().replace(/[\s\(\)（）\/]/g,'');
-        const field=COL_MAP[norm];
-        if(!field) continue;
-        if(DATE_FIELDS.has(field)){rec[field]=excelDateToStr(v)||null;}
-        else if(NUM_FIELDS.has(field)){const n=parseFloat(String(v).replace(/,/g,''));rec[field]=isNaN(n)?null:n;}
-        else{rec[field]=String(v).trim()||null;}
-      }
-      return rec;
-    }).filter(r=>r.po_number&&!/^(total|合計|小計|sum|subtotal|grand)/i.test(String(r.po_number).trim()));
-    if(!mapped.length){toast('找不到 PO號碼 欄位或無有效資料','err');return;}
-    impData=mapped;
-    g('fn-imp').textContent=`📎 ${file.name}`;
-    renderImportPreview();
-  }catch(e){toast('解析失敗：'+e.message,'err');g('fn-imp').textContent='❌ 解析失敗';}
-}
-function renderImportPreview(){
-  if(!impData.length) return;
-  const cols=['po_number','etd','etc_invoice_date','amount_usd','eta','customs_fee','kts_payment_date','tl_payment_date'];
-  const labels={'po_number':'PO號碼','etd':'ETD','etc_invoice_date':'ETC發票日','amount_usd':'金額USD','eta':'ETA','customs_fee':'報關費','kts_payment_date':'KTS入帳日','tl_payment_date':'TL付款日'};
-  g('imp-count').textContent=`共 ${impData.length} 筆資料`;
-  g('imp-thead').innerHTML='<tr>'+cols.map(c=>`<th style="padding:8px 10px;text-align:left;font-size:.72rem;color:var(--mu);text-transform:uppercase;white-space:nowrap">${labels[c]||c}</th>`).join('')+'</tr>';
-  g('imp-tbody').innerHTML=impData.slice(0,50).map(r=>'<tr>'+cols.map(c=>`<td style="padding:7px 10px;border-bottom:1px solid var(--border);white-space:nowrap">${r[c]??''}</td>`).join('')+'</tr>').join('');
-  if(impData.length>50) g('imp-tbody').innerHTML+=`<tr><td colspan="${cols.length}" style="padding:8px 10px;color:var(--mu);font-size:.8rem">... 另有 ${impData.length-50} 筆（匯入時全部處理）</td></tr>`;
-  g('imp-preview').style.display='block';g('imp-result').innerHTML='';
-}
-function clearImport(){impData=[];g('imp-preview').style.display='none';g('fn-imp').style.display='none';}
-async function doImport(){
-  if(!impData.length) return;
-  setBtnLoad('btn-imp',true,'匯入中...');
-  let ok=0,fail=0,errs=[];
-  const BATCH=20;
-  for(let i=0;i<impData.length;i+=BATCH){
-    const batch=impData.slice(i,i+BATCH);
-    try{
-      const {error}=await db.from('orders').insert(batch);
-      if(error){fail+=batch.length;errs.push(error.message);}
-      else ok+=batch.length;
-    }catch(e){fail+=batch.length;errs.push(e.message);}
-  }
-  setBtnLoad('btn-imp',false,'📥 開始匯入');
-  let html=`<div class="btn-ok" style="padding:12px 16px;border-radius:8px;color:white;font-weight:700;margin-bottom:8px">✅ 成功匯入 ${ok} 筆</div>`;
-  if(fail) html+=`<div style="color:var(--err);font-size:.85rem">❌ 失敗 ${fail} 筆：${errs.slice(0,3).join('; ')}</div>`;
-  g('imp-result').innerHTML=html;
-  if(ok>0) toast(`匯入 ${ok} 筆成功`,'ok');
-}
-
 // ── CLOSE DROPDOWNS ──
 document.addEventListener('click',e=>{
   ['dd2','dd3'].forEach(id=>{
@@ -1454,10 +1335,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   }
   setupDZ('dz1',handleFile1);
   setupDZ('dz2',handleFile2);
-  setupDZ('dz-imp',handleImportFile);
   g('fi1').addEventListener('change',e=>handleFile1(e.target.files[0]));
   g('fi2').addEventListener('change',e=>handleFile2(e.target.files[0]));
-  g('fi-imp').addEventListener('change',e=>handleImportFile(e.target.files[0]));
   const now2=new Date();
   g('s4-month').value=`${now2.getFullYear()}-${String(now2.getMonth()+1).padStart(2,'0')}`;
   updateS4QuickRange();
