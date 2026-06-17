@@ -1012,7 +1012,8 @@ function renderS1List(){
   g('s1-list-tbody').innerHTML=pageList.map(o=>{
     const settled=o.stage===4;
     const unshipped=Math.max(0,(parseInt(o.order_qty)||0)-o.total_shipped);
-    const etaDisp=o.latest_eta?fmtDate(o.latest_eta):'—';
+    const etaList=[...new Set((o.shipments||[]).filter(s=>s.eta).map(s=>s.eta))].sort();
+    const etaDisp=etaList.length?etaList.map(fmtDate).join('<br>'):'—';
     const poEsc=(o.po_number||'').replace(/'/g,"\\'");
     const actBtns=settled?
       `<div style="display:flex;flex-direction:column;gap:4px">
