@@ -396,6 +396,8 @@ async function loadOrders(){
       customs_fee_sum:customsFeeSum,trade_fee_sum:tradeFeeSum,
       ship_amount:shipAmtSum,commission};
   });
+  // 依狀態排序(1→4)，同狀態內依建立時間新到舊
+  allOrders.sort((a,b)=>a.stage-b.stage||(b.created_at>a.created_at?1:-1));
   renderDash();
   renderTable();
 }

@@ -342,9 +342,15 @@ tr[style*="opacity:.65"]:hover td{background:transparent!important}
       </div>
 
       <div class="card">
-        <div class="card-hd">
+        <div class="card-hd" style="flex-wrap:wrap;gap:10px">
           <div class="card-title"><div class="card-icon">📋</div>所有訂單列表</div>
-          <div style="display:flex;gap:8px">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <div style="display:flex;align-items:center;gap:6px">
+              <label style="font-size:.78rem;font-weight:700;color:var(--mu);white-space:nowrap">ETA月份</label>
+              <input type="month" id="s1-month-filter" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:.82rem;font-family:inherit" onchange="setS1MonthFilter(this.value)">
+              <button class="btn btn-sm btn-gh" onclick="clearS1MonthFilter()" id="s1-month-clear" style="display:none">✕</button>
+            </div>
+            <span style="width:1px;height:20px;background:var(--border);display:inline-block"></span>
             <button class="btn btn-sm btn-pri" id="s1f-all" onclick="setS1Filter('all')">全部</button>
             <button class="btn btn-sm btn-gh" id="s1f-active" onclick="setS1Filter('active')">未結清</button>
             <button class="btn btn-sm btn-gh" id="s1f-settled" onclick="setS1Filter('settled')">已結清</button>
@@ -549,7 +555,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/p
 const USERS={'Tl3167':'tl888$$$','entry':'entry123'};
 const SL=['','已建立','已出貨','已進口','已結清'];
 let CU=null;
-let s1Orders=[],s1Filter='all',s1EditingId=null,s1DetailId=null;
+let s1Orders=[],s1Filter='all',s1MonthFilter='',s1EditingId=null,s1DetailId=null;
 let s2ShipItems=[];
 let s3SelectedShipment=null;
 let s4Mode='quick',s4List=[],s4SelItem=null;
@@ -959,11 +965,35 @@ function setS1Filter(f){
   });
   renderS1List();
 }
+function setS1MonthFilter(v){
+  s1MonthFilter=v||'';
+  const cb=g('s1-month-clear');
+  if(cb) cb.style.display=s1MonthFilter?'':'none';
+  renderS1List();
+}
+function clearS1MonthFilter(){
+  s1MonthFilter='';
+  const mi=g('s1-month-filter');if(mi) mi.value='';
+  const cb=g('s1-month-clear');if(cb) cb.style.display='none';
+  renderS1List();
+}
+async function unsettle(orderId,po){
+  if(!confirm(`確定要解除此訂單（PO ${po}）的結清狀態嗎？\n解除後訂單將回到「已進口」狀態，所有出貨記錄與付款資料維持原樣不變。`)) return;
+  try{
+    const {error}=await db.from('orders').update({stage:3,updated_at:now()}).eq('id',orderId);
+    if(error) throw error;
+    toast(`訂單 ${po} 已解除結清，回到「已進口」狀態`,'ok');
+    await loadS1Data();
+  }catch(e){toast('操作失敗：'+e.message,'err');}
+}
 
 function renderS1List(){
   let list=s1Orders;
-  if(s1Filter==='active') list=s1Orders.filter(o=>o.stage<4);
-  if(s1Filter==='settled') list=s1Orders.filter(o=>o.stage===4);
+  if(s1Filter==='active') list=list.filter(o=>o.stage<4);
+  if(s1Filter==='settled') list=list.filter(o=>o.stage===4);
+  if(s1MonthFilter) list=list.filter(o=>(o.shipments||[]).some(s=>s.eta&&s.eta.startsWith(s1MonthFilter)));
+  // 依狀態排序(1→4)，同狀態內保持原本 created_at 新到舊順序（DB 已排好，stable sort 保留）
+  list=[...list].sort((a,b)=>a.stage-b.stage);
   if(!list.length){
     g('s1-list-wrap').style.display='none';
     g('s1-list-empty').style.display='block';
@@ -975,9 +1005,11 @@ function renderS1List(){
     const settled=o.stage===4;
     const unshipped=Math.max(0,(parseInt(o.order_qty)||0)-o.total_shipped);
     const etaDisp=o.latest_eta?fmtDate(o.latest_eta):'—';
-    const actBtns=settled?'':`
-      <button class="btn btn-sm btn-out" onclick="event.stopPropagation();loadOrderToS1(${o.id})" title="編輯">✏️</button>
-      <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deleteOrder(${o.id},'${o.po_number}')" title="刪除">🗑️</button>
+    const poEsc=(o.po_number||'').replace(/'/g,"\\'");
+    const actBtns=settled?
+      `<button class="btn btn-sm btn-danger" onclick="event.stopPropagation();unsettle(${o.id},'${poEsc}')" title="解除結案">⛔ 解除結案</button>`:
+      `<button class="btn btn-sm btn-out" onclick="event.stopPropagation();loadOrderToS1(${o.id})" title="編輯">✏️</button>
+      <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deleteOrder(${o.id},'${poEsc}')" title="刪除">🗑️</button>
       <button class="btn btn-sm btn-ok" onclick="event.stopPropagation();openSettleModal(${o.id})" title="結案">✅ 結案</button>`;
     const rowStyle=settled?'style="opacity:.65"':'';
 
