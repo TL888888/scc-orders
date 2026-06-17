@@ -292,6 +292,7 @@ body{font-family:'Segoe UI','Microsoft JhengHei',Arial,sans-serif;background:var
           </tbody>
         </table>
       </div>
+      <div id="pagination" style="display:none;padding:14px 0;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap"></div>
     </div>
   </div>
 </div>
@@ -319,7 +320,9 @@ const db=supabase.createClient(SURL,SKEY);
 
 const USERS={'Tl3167':'tl888$$$'};
 let CU=null;
+const PAGE_SIZE=20;
 let allOrders=[];
+let page=1;
 let ldTimer=null;
 
 function g(id){return document.getElementById(id)}
@@ -349,6 +352,7 @@ g('pw').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 
 // ── LOAD ──
 async function loadOrders(){
+  page=1;
   const from=g('f-from').value,to=g('f-to').value,po=g('f-po').value.trim();
 
   // 1. If ETA date filter set, find matching order_ids via shipments.eta first
@@ -401,9 +405,9 @@ async function loadOrders(){
   renderDash();
   renderTable();
 }
-function debounceLoad(){clearTimeout(ldTimer);ldTimer=setTimeout(loadOrders,350);}
+function debounceLoad(){page=1;clearTimeout(ldTimer);ldTimer=setTimeout(loadOrders,350);}
 function clearFilter(){
-  g('f-from').value='';g('f-to').value='';g('f-po').value='';loadOrders();
+  page=1;g('f-from').value='';g('f-to').value='';g('f-po').value='';loadOrders();
 }
 
 // ── DASHBOARD ──
@@ -427,11 +431,16 @@ function renderDash(){
 const SL=['','已建立','已出貨','已進口','已結清'];
 function renderTable(){
   const body=g('tbl-body');
-  if(!allOrders.length){
+  const total=allOrders.length;
+  if(!total){
     body.innerHTML='<tr><td colspan="12"><div class="empty-state"><div class="ei">📭</div><p>目前沒有符合條件的訂單</p></div></td></tr>';
+    g('pagination').style.display='none';
     return;
   }
-  body.innerHTML=allOrders.map(o=>{
+  const totalPages=Math.max(1,Math.ceil(total/PAGE_SIZE));
+  if(page>totalPages) page=totalPages;
+  const pageList=allOrders.slice((page-1)*PAGE_SIZE, page*PAGE_SIZE);
+  body.innerHTML=pageList.map(o=>{
     const st=o.stage||1;
     return`<tr>
       <td><strong>${o.po_number||'—'}</strong></td>
@@ -448,7 +457,17 @@ function renderTable(){
       <td><button class="btn btn-out btn-sm" onclick="openDetail(${o.id})">詳情</button></td>
     </tr>`;
   }).join('');
+  // 分頁控制列
+  const pg=g('pagination');
+  if(totalPages<=1){pg.style.display='none';}
+  else{
+    pg.style.display='flex';
+    const prev=page>1?`<button class="btn btn-sm btn-gh" onclick="setPage(${page-1})">← 上一頁</button>`:`<button class="btn btn-sm btn-gh" disabled style="opacity:.4">← 上一頁</button>`;
+    const next=page<totalPages?`<button class="btn btn-sm btn-gh" onclick="setPage(${page+1})">下一頁 →</button>`:`<button class="btn btn-sm btn-gh" disabled style="opacity:.4">下一頁 →</button>`;
+    pg.innerHTML=`${prev}<span style="font-size:.83rem;color:var(--mu);padding:0 4px">第 ${page} 頁 / 共 ${totalPages} 頁（${total} 筆）</span>${next}`;
+  }
 }
+function setPage(n){page=n;renderTable();}
 
 // ── MODAL ──
 function openDetail(id){

@@ -375,6 +375,7 @@ tr[style*="opacity:.65"]:hover td{background:transparent!important}
           </table>
         </div>
         <div id="s1-list-empty" style="display:none;text-align:center;padding:24px;color:var(--mu);font-size:.9rem">暫無訂單資料</div>
+        <div id="s1-pagination" style="display:none;padding:12px 0;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap"></div>
       </div>
 
       <div class="card" id="s1-detail" style="display:none">
@@ -555,7 +556,8 @@ pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/p
 const USERS={'Tl3167':'tl888$$$','entry':'entry123'};
 const SL=['','已建立','已出貨','已進口','已結清'];
 let CU=null;
-let s1Orders=[],s1Filter='all',s1MonthFilter='',s1EditingId=null,s1DetailId=null;
+const S1_PAGE_SIZE=20;
+let s1Orders=[],s1Filter='all',s1MonthFilter='',s1Page=1,s1EditingId=null,s1DetailId=null;
 let s2ShipItems=[];
 let s3SelectedShipment=null;
 let s4Mode='quick',s4List=[],s4SelItem=null;
@@ -958,7 +960,7 @@ async function loadS1Data(){
 }
 
 function setS1Filter(f){
-  s1Filter=f;
+  s1Filter=f;s1Page=1;
   ['all','active','settled'].forEach(k=>{
     const b=g(`s1f-${k}`);
     if(b) b.className=`btn btn-sm ${f===k?'btn-pri':'btn-gh'}`;
@@ -966,13 +968,13 @@ function setS1Filter(f){
   renderS1List();
 }
 function setS1MonthFilter(v){
-  s1MonthFilter=v||'';
+  s1MonthFilter=v||'';s1Page=1;
   const cb=g('s1-month-clear');
   if(cb) cb.style.display=s1MonthFilter?'':'none';
   renderS1List();
 }
 function clearS1MonthFilter(){
-  s1MonthFilter='';
+  s1MonthFilter='';s1Page=1;
   const mi=g('s1-month-filter');if(mi) mi.value='';
   const cb=g('s1-month-clear');if(cb) cb.style.display='none';
   renderS1List();
@@ -994,14 +996,20 @@ function renderS1List(){
   if(s1MonthFilter) list=list.filter(o=>(o.shipments||[]).some(s=>s.eta&&s.eta.startsWith(s1MonthFilter)));
   // 依狀態排序(1→4)，同狀態內保持原本 created_at 新到舊順序（DB 已排好，stable sort 保留）
   list=[...list].sort((a,b)=>a.stage-b.stage);
-  if(!list.length){
+  const total=list.length;
+  if(!total){
     g('s1-list-wrap').style.display='none';
     g('s1-list-empty').style.display='block';
+    g('s1-pagination').style.display='none';
     return;
   }
+  // 分頁
+  const totalPages=Math.max(1,Math.ceil(total/S1_PAGE_SIZE));
+  if(s1Page>totalPages) s1Page=totalPages;
+  const pageList=list.slice((s1Page-1)*S1_PAGE_SIZE, s1Page*S1_PAGE_SIZE);
   g('s1-list-wrap').style.display='block';
   g('s1-list-empty').style.display='none';
-  g('s1-list-tbody').innerHTML=list.map(o=>{
+  g('s1-list-tbody').innerHTML=pageList.map(o=>{
     const settled=o.stage===4;
     const unshipped=Math.max(0,(parseInt(o.order_qty)||0)-o.total_shipped);
     const etaDisp=o.latest_eta?fmtDate(o.latest_eta):'—';
@@ -1012,7 +1020,6 @@ function renderS1List(){
       <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deleteOrder(${o.id},'${poEsc}')" title="刪除">🗑️</button>
       <button class="btn btn-sm btn-ok" onclick="event.stopPropagation();openSettleModal(${o.id})" title="結案">✅ 結案</button>`;
     const rowStyle=settled?'style="opacity:.65"':'';
-
     return`<tr ${rowStyle} onclick="showS1Detail(${o.id})">
       <td>${fmtDate(o.order_date)}</td>
       <td><strong>${o.po_number}</strong></td>
@@ -1025,7 +1032,17 @@ function renderS1List(){
       <td><div class="act-btns">${actBtns}</div></td>
     </tr>`;
   }).join('');
+  // 分頁控制列
+  const pg=g('s1-pagination');
+  if(totalPages<=1){pg.style.display='none';}
+  else{
+    pg.style.display='flex';
+    const prev=s1Page>1?`<button class="btn btn-sm btn-gh" onclick="setS1Page(${s1Page-1})">← 上一頁</button>`:`<button class="btn btn-sm btn-gh" disabled style="opacity:.4">← 上一頁</button>`;
+    const next=s1Page<totalPages?`<button class="btn btn-sm btn-gh" onclick="setS1Page(${s1Page+1})">下一頁 →</button>`:`<button class="btn btn-sm btn-gh" disabled style="opacity:.4">下一頁 →</button>`;
+    pg.innerHTML=`${prev}<span style="font-size:.83rem;color:var(--mu);padding:0 4px">第 ${s1Page} 頁 / 共 ${totalPages} 頁（${total} 筆）</span>${next}`;
+  }
 }
+function setS1Page(n){s1Page=n;renderS1List();}
 
 async function loadOrderToS1(id){
   const o=s1Orders.find(x=>x.id===id);
