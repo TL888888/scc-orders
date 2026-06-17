@@ -387,35 +387,30 @@ tr[style*="opacity:.65"]:hover td{background:transparent!important}
           <div class="card-title"><div class="card-icon">🚢</div>第二階段：出貨資料</div>
           <button class="btn btn-gh btn-sm" onclick="clearS2()">清除</button>
         </div>
-        <div class="sw">
-          <span class="si-icon">🔍</span>
-          <input class="si" type="text" id="sr2" placeholder="輸入 PO 號碼搜尋訂單（或拖曳 PDF 自動比對）..." oninput="doSearch(2)">
-        </div>
-        <div class="sd" id="dd2"></div>
-        <div class="obar" id="ob2">
-          <div><div class="obar-po" id="ob2-po"></div><div class="obar-sub" id="ob2-sub"></div></div>
-          <button class="btn btn-gh btn-sm" onclick="clearS2()">✕ 取消</button>
-        </div>
         <div class="dz" id="dz2">
           <input type="file" accept=".pdf" id="fi2">
           <div class="dz-icon">📦</div>
-          <div class="dz-text">拖曳送貨單 PDF 到此處，或 <strong>點擊選擇檔案</strong><br>系統將自動擷取送貨單資料並連動訂單單價</div>
+          <div class="dz-text">拖曳送貨單 PDF 到此處，或 <strong>點擊選擇檔案</strong><br>系統將自動擷取送貨單資料，支援一張送貨單對應多筆訂單</div>
           <div class="dz-fn" id="fn2"></div>
         </div>
-        <div class="line-info" id="s2-line-info">
-          <div class="line-info-lbl">對應品項</div>
-          <div id="s2-line-content"></div>
-        </div>
-        <div class="fg">
-          <div class="field"><label>送貨單號</label><input type="text" id="f2-sn" placeholder="例：ITC260611-24"></div>
-          <div class="field"><label>ETA（交易日期）</label><input type="date" id="f2-eta"></div>
-          <div class="field"><label>連動單價（USD）</label><input type="number" id="f2-up-ref" placeholder="由訂單帶入" step="0.0001" readonly><span class="hint">由第一階段訂單自動帶入</span></div>
-          <div class="field"><label>實際數量</label><input type="number" id="f2-aq" placeholder="0" min="0" oninput="calc2()"></div>
-          <div class="field s2"><label>實際金額（USD）</label><input type="number" id="f2-aa" placeholder="自動計算" step="0.01" readonly><span class="hint">連動單價 × 實際數量</span></div>
-        </div>
-        <div class="actions">
-          <button class="btn btn-ok" onclick="saveS2()" id="bs2">💾 新增出貨記錄</button>
-          <span id="ss2" style="font-size:.85rem;color:var(--mu)"></span>
+        <div id="s2-form-wrap" style="display:none">
+          <div class="fg">
+            <div class="field"><label>送貨單號</label><input type="text" id="f2-sn" placeholder="例：ITC260506-07"></div>
+            <div class="field"><label>ETA（交易日期）</label><input type="date" id="f2-eta"></div>
+          </div>
+          <div id="s2-items-wrap" style="margin:16px 0">
+            <div style="font-size:.73rem;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">出貨品項</div>
+            <div style="overflow-x:auto;border:1px solid var(--border);border-radius:10px">
+              <table class="items-tbl">
+                <thead><tr><th>訂單編號</th><th>Line</th><th class="r">數量</th><th class="r">單價 (USD)</th><th class="r">金額 (USD)</th><th>狀態</th></tr></thead>
+                <tbody id="s2-items-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="actions">
+            <button class="btn btn-ok" onclick="saveS2()" id="bs2">💾 儲存出貨記錄</button>
+            <span id="ss2" style="font-size:.85rem;color:var(--mu)"></span>
+          </div>
         </div>
       </div>
 
@@ -555,12 +550,11 @@ const USERS={'Tl3167':'tl888$$$','entry':'entry123'};
 const SL=['','已建立','已出貨','已進口','已結清'];
 let CU=null;
 let s1Orders=[],s1Filter='all',s1EditingId=null,s1DetailId=null;
-let s2SelectedOrder=null;
+let s2ShipItems=[];
 let s3SelectedShipment=null;
 let s4Mode='quick',s4List=[],s4SelItem=null;
 let fileQueue=[],queueCurrent=0,queueTotal=0;
 let s1ParsedItems=[];
-let s2OrderItems=[],s2SelectedLineNo=null;
 
 // ── AUTH ──
 function doLogin(){
@@ -661,22 +655,17 @@ function parseOrder(txt){
 // ── PARSE SHIPPING PDF ──
 function parseShipping(txt){
   const r={};let m;
-  console.log('[parseShipping] raw text (first 500):', JSON.stringify(txt.substring(0,500)));
   m=txt.match(/([A-Z]{2,5}\d{6,8}-\d+)/i);
   if(m) r.shipping_notice_no=m[1].toUpperCase();
-  m=txt.match(/(?<![A-Z0-9-])(\d{7})(?![A-Z0-9-])/i);
-  if(m) r.po_number=m[1];
-  m=txt.match(/Line\s+No[.:]\s*(\d+)/i);
-  if(m) r.line_no=parseInt(m[1]);
   m=txt.match(/(\d{4}\/\d{1,2}\/\d{1,2})/);
   if(m) r.eta=pdate(m[1]);
-  const qm1=txt.match(/(?<![A-Z0-9-])(\d[\d,]{0,10})\s*PCS\b/i);
-  const qm2=txt.match(/(?<![A-Z0-9-])(\d[\d,]{0,10})\s+Units\b/i);
-  m=qm1||qm2;
-  console.log('[parseShipping] qm1:', qm1&&qm1[0], 'qm2:', qm2&&qm2[0], 'actual_qty raw:', m&&m[1]);
-  if(m){r.actual_qty=pnum(m[1]);}
-  else{const all=[...txt.matchAll(/\b(\d{1,3}(?:,\d{3})+)\b/g)];if(all.length) r.actual_qty=pnum(all[all.length-1][1]);}
-  console.log('[parseShipping] result:', JSON.stringify(r));
+  const poBlocks=[...txt.matchAll(/(\d{7})[^\n]*\nLine No:\s*(\d+)/gi)];
+  const qtyMatches=[...txt.matchAll(/([\d,]+)\s+PCS/gi)];
+  r.items=poBlocks.map((pb,i)=>({
+    po_number:pb[1],
+    line_no:parseInt(pb[2]),
+    qty:i<qtyMatches.length?pnum(qtyMatches[i][1]):null
+  }));
   return r;
 }
 
@@ -1153,80 +1142,30 @@ async function deleteShipment(sid,orderId,sn){
   }catch(e){toast('刪除失敗：'+e.message,'err');}
 }
 // ── STAGE 2 ──
-async function loadS2OrderItems(orderId){
-  const {data}=await db.from('order_items').select('*').eq('order_id',orderId).order('line_no');
-  return data||[];
-}
-function renderS2LineInfo(){
-  const el=g('s2-line-info');
-  const content=g('s2-line-content');
-  if(!s2OrderItems.length){
-    el.style.display='none';
-    g('f2-up-ref').value=s2SelectedOrder?.unit_price?Number(s2SelectedOrder.unit_price).toFixed(4):'';
-    return;
-  }
-  el.style.display='block';
-  if(s2OrderItems.length===1){
-    const it=s2OrderItems[0];
-    s2SelectedLineNo=it.line_no;
-    content.innerHTML=`<span style="font-size:.85rem;color:var(--tx)">此送貨單對應 <strong>Line ${it.line_no}</strong>：單價 USD <strong>${Number(it.unit_price).toFixed(4)}</strong></span>`;
-  } else if(s2SelectedLineNo!=null){
-    const sel=s2OrderItems.find(it=>it.line_no===s2SelectedLineNo);
-    content.innerHTML=`<div style="margin-bottom:6px;font-size:.82rem;color:var(--ok);font-weight:700">已選 Line ${s2SelectedLineNo}：單價 USD ${Number(sel?.unit_price||0).toFixed(4)}</div>`
-      +s2OrderItems.map(it=>`<button class="line-btn${it.line_no===s2SelectedLineNo?' sel':''}" onclick="selectS2Line(${it.line_no})">Line ${it.line_no}（${Number(it.unit_price).toFixed(4)}）</button>`).join('');
-  } else {
-    content.innerHTML=`<div style="font-size:.82rem;color:var(--warn);font-weight:600;margin-bottom:8px">⚠️ 此訂單有多個品項，請選擇此送貨單對應的品項：</div>`
-      +s2OrderItems.map(it=>`<button class="line-btn" onclick="selectS2Line(${it.line_no})">Line ${it.line_no}（單價 ${Number(it.unit_price).toFixed(4)}）</button>`).join('');
-  }
-}
-function selectS2Line(lineNo){
-  s2SelectedLineNo=lineNo;
-  renderS2LineInfo();
-  calc2();
-}
-function calc2(){
-  const q=parseFloat(g('f2-aq').value)||0;
-  let p=0;
-  if(s2OrderItems.length>0){
-    const lineNo=s2SelectedLineNo??((s2OrderItems.length===1)?s2OrderItems[0].line_no:null);
-    const it=lineNo!=null?s2OrderItems.find(x=>x.line_no===lineNo):null;
-    p=it?parseFloat(it.unit_price)||0:0;
-  }
-  if(!p&&s2SelectedOrder) p=parseFloat(s2SelectedOrder.unit_price)||0;
-  if(p) g('f2-up-ref').value=Number(p).toFixed(4);
-  if(q&&p) g('f2-aa').value=(q*p).toFixed(2);
-}
 function clearS2(){
-  s2SelectedOrder=null;s2OrderItems=[];s2SelectedLineNo=null;
-  g('ob2').style.display='none';
-  g('s2-line-info').style.display='none';
-  ['f2-sn','f2-eta','f2-aq','f2-aa'].forEach(id=>{g(id).value='';g(id).classList.remove('af');});
-  g('f2-up-ref').value='';
+  s2ShipItems=[];
+  ['f2-sn','f2-eta'].forEach(id=>{const el=g(id);if(el){el.value='';el.classList.remove('af');}});
   g('fn2').style.display='none';g('fn2').textContent='';
-  g('sr2').value='';g('dd2').style.display='none';
+  g('s2-form-wrap').style.display='none';
   g('ss2').textContent='';
 }
-async function showS2OrderBar(ord,knownLineNo=null){
-  s2SelectedOrder=ord;
-  const s1o=s1Orders.find(x=>x.id===ord.id);
-  const shipped=s1o?s1o.total_shipped:0;
-  const remaining=Math.max(0,(parseInt(ord.order_qty)||0)-shipped);
-  g('ob2-po').textContent=ord.po_number;
-  g('ob2-sub').textContent=`訂單數量：${ord.order_qty!=null?Number(ord.order_qty).toLocaleString('zh-TW'):'?'} | 已出：${shipped} | 剩餘：${remaining}`;
-  g('ob2').style.display='flex';
-  s2OrderItems=await loadS2OrderItems(ord.id);
-  s2SelectedLineNo=null;
-  if(s2OrderItems.length===1) s2SelectedLineNo=s2OrderItems[0].line_no;
-  else if(knownLineNo!=null&&s2OrderItems.find(it=>it.line_no===knownLineNo)) s2SelectedLineNo=knownLineNo;
-  renderS2LineInfo();
-  calc2();
-}
-async function selOrder2(id){
-  const {data,error}=await db.from('orders').select('*').eq('id',id).single();
-  if(error){toast('載入失敗','err');return;}
-  g('dd2').style.display='none';g('sr2').value='';
-  await showS2OrderBar(data);
-  toast(`已選訂單：${data.po_number}`,'info');
+function renderS2Items(){
+  const tbody=g('s2-items-tbody');
+  tbody.innerHTML=s2ShipItems.map(it=>{
+    let st='',stCls='color:var(--mu)';
+    if(it.status==='ready'){st='✅ 可儲存';stCls='color:var(--ok);font-weight:700';}
+    else if(it.status==='not_found'){st='⚠️ 找不到訂單';stCls='color:#b45309;font-weight:600';}
+    else if(it.status==='stage4'){st='⛔ 已結清';stCls='color:var(--err);font-weight:600';}
+    else if(it.status==='duplicate'){st='⚠️ 已存在';stCls='color:#b45309;font-weight:600';}
+    return`<tr>
+      <td><strong>${it.order_po_number||it.po_number}</strong></td>
+      <td>Line ${it.line_no}</td>
+      <td class="r">${it.qty!=null?Number(it.qty).toLocaleString('zh-TW'):'—'}</td>
+      <td class="r">${it.unit_price!=null?Number(it.unit_price).toFixed(4):'—'}</td>
+      <td class="r">${it.amount!=null?'$'+fmtAmt(it.amount):'—'}</td>
+      <td style="${stCls}">${st}</td>
+    </tr>`;
+  }).join('');
 }
 async function handleFile2(file){
   if(!file||file.type!=='application/pdf'){toast('請選擇 PDF 檔案','err');return;}
@@ -1235,61 +1174,71 @@ async function handleFile2(file){
     const txt=await extractText(file);
     const d=parseShipping(txt);
     g('fn2').textContent=`📎 ${file.name}`;
+    if(!d.items||!d.items.length){toast('未能辨識出訂單品項，請確認 PDF 格式','err');return;}
     if(d.shipping_notice_no) g('f2-sn').value=d.shipping_notice_no;
     if(d.eta) g('f2-eta').value=d.eta;
-    if(d.actual_qty) g('f2-aq').value=d.actual_qty;
-    if(d.po_number){
-      const {data,error}=await db.from('orders').select('*').ilike('po_number',`%${d.po_number}%`).order('created_at',{ascending:false}).limit(5);
-      if(!error&&data&&data.length){
-        const match=data.find(o=>o.po_number.replace(/OP$/i,'')===d.po_number||o.po_number===d.po_number||o.po_number===d.po_number+'OP')||data[0];
-        if(match.stage===4){toast(`訂單 ${match.po_number} 已結清，無法新增出貨`,'err');return;}
-        await showS2OrderBar(match,d.line_no??null);
-        calc2();
-        toast(`✅ 找到訂單 ${match.po_number}${d.line_no?'，Line '+d.line_no:''}，請確認後儲存`,'ok');
-      } else {
-        g('sr2').value=d.po_number;doSearch(2);
-        toast('請從下拉選擇對應訂單','info');
+    const sn=d.shipping_notice_no||'';
+    s2ShipItems=[];
+    for(const item of d.items){
+      const {data:ords}=await db.from('orders').select('*').ilike('po_number',`%${item.po_number}%`).order('created_at',{ascending:false}).limit(5);
+      const order=ords?.find(o=>o.po_number.replace(/OP$/i,'')===item.po_number||o.po_number===item.po_number||o.po_number===item.po_number+'OP')||ords?.[0];
+      let unit_price=null;
+      if(order){
+        const {data:oi}=await db.from('order_items').select('unit_price').eq('order_id',order.id).eq('line_no',item.line_no).single();
+        unit_price=oi?.unit_price??order.unit_price??null;
       }
-    } else {
-      toast('未能自動抓取訂單編號，請手動搜尋','info');
+      let status='ready';
+      if(!order) status='not_found';
+      else if(order.stage===4) status='stage4';
+      else if(sn){
+        const {data:dup}=await db.from('shipments').select('id')
+          .eq('shipping_notice_no',sn).eq('order_id',order.id).eq('line_no',item.line_no).limit(1);
+        if(dup?.length) status='duplicate';
+      }
+      const amount=(unit_price&&item.qty!=null)?parseFloat((item.qty*unit_price).toFixed(2)):null;
+      s2ShipItems.push({
+        po_number:item.po_number,line_no:item.line_no,qty:item.qty,
+        order_id:order?.id,order_po_number:order?.po_number,
+        unit_price,amount,status
+      });
     }
+    g('s2-form-wrap').style.display='block';
+    renderS2Items();
+    const readyCount=s2ShipItems.filter(x=>x.status==='ready').length;
+    if(readyCount>0) toast(`找到 ${s2ShipItems.length} 筆品項（${readyCount} 筆可儲存），確認後請點儲存`,'ok');
+    else toast(`找到 ${s2ShipItems.length} 筆品項，但無可儲存的記錄，請確認訂單狀態`,'err');
   }catch(e){g('fn2').textContent='❌ 解析失敗';toast('PDF解析失敗：'+e.message,'err');}
 }
 async function saveS2(){
-  if(!s2SelectedOrder){toast('請先選擇訂單','err');return;}
-  if(s2SelectedOrder.stage===4){toast('已結清訂單不可新增出貨','err');return;}
-  if(s2OrderItems.length>1&&s2SelectedLineNo==null){toast('請先選擇對應品項（Line No.）','err');return;}
   const sn=g('f2-sn').value.trim();
   const eta=g('f2-eta').value;
-  const aq=parseFloat(g('f2-aq').value)||null;
-  const aa=parseFloat(g('f2-aa').value)||null;
-  if(sn){
-    const {data:dup}=await db.from('shipments').select('id').eq('shipping_notice_no',sn).limit(1);
-    if(dup&&dup.length){toast(`送貨單號 ${sn} 已存在，請確認是否重複`,'err');return;}
-  }
-  const lineNo=s2SelectedLineNo??((s2OrderItems.length===1)?s2OrderItems[0].line_no:null);
+  const readyItems=s2ShipItems.filter(it=>it.status==='ready');
+  if(!readyItems.length){toast('沒有可儲存的出貨品項','err');return;}
   setBtnLoad('bs2',true,'儲存中...');
   try{
-    const {error}=await db.from('shipments').insert([{
-      order_id:s2SelectedOrder.id,
-      shipping_notice_no:sn||null,
-      eta:eta||null,
-      actual_qty:aq,
-      actual_amount_usd:aa,
-      line_no:lineNo,
-      customs_fee:0,
-      trade_promotion_fee:0
-    }]);
-    if(error) throw error;
-    const newStage=Math.max(s2SelectedOrder.stage||1,2);
-    await db.from('orders').update({stage:newStage,updated_at:now()}).eq('id',s2SelectedOrder.id);
-    toast('出貨記錄新增成功','ok');
+    for(const it of readyItems){
+      const {error}=await db.from('shipments').insert([{
+        order_id:it.order_id,
+        shipping_notice_no:sn||null,
+        eta:eta||null,
+        actual_qty:it.qty,
+        actual_amount_usd:it.amount,
+        line_no:it.line_no,
+        customs_fee:0,
+        trade_promotion_fee:0
+      }]);
+      if(error) throw error;
+      const {data:ord}=await db.from('orders').select('stage').eq('id',it.order_id).single();
+      const newStage=Math.max(ord?.stage||1,2);
+      await db.from('orders').update({stage:newStage,updated_at:now()}).eq('id',it.order_id);
+    }
+    toast(`成功儲存 ${readyItems.length} 筆出貨記錄`,'ok');
     g('ss2').textContent=`儲存時間：${new Date().toLocaleString('zh-TW')}`;
     clearS2();
     await loadS1Data();
     loadS2List();
   }catch(e){toast('儲存失敗：'+e.message,'err');}
-  finally{setBtnLoad('bs2',false,'💾 新增出貨記錄');}
+  finally{setBtnLoad('bs2',false,'💾 儲存出貨記錄');}
 }
 async function loadS2List(){
   const {data,error}=await db.from('shipments')
