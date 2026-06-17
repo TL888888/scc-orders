@@ -1016,7 +1016,9 @@ function renderS1List(){
     const etaDisp=etaList.length?etaList.map(fmtDate).join('<br>'):'—';
     const poEsc=(o.po_number||'').replace(/'/g,"\\'");
     const actBtns=settled?
-      `<button class="btn btn-sm btn-danger" onclick="event.stopPropagation();unsettle(${o.id},'${poEsc}')" title="解除結案">⛔ 解除結案</button>`:
+      `<button class="btn btn-sm" style="visibility:hidden;pointer-events:none" aria-hidden="true">✏️</button>
+      <button class="btn btn-sm" style="visibility:hidden;pointer-events:none" aria-hidden="true">🗑️</button>
+      <button class="btn btn-danger" onclick="event.stopPropagation();unsettle(${o.id},'${poEsc}')" title="解除結案" style="padding:3px 8px;font-size:.75rem;border-radius:6px;border:1.5px solid var(--err);cursor:pointer;background:#fff;color:var(--err)">⛔ 解除</button>`:
       `<button class="btn btn-sm btn-out" onclick="event.stopPropagation();loadOrderToS1(${o.id})" title="編輯">✏️</button>
       <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deleteOrder(${o.id},'${poEsc}')" title="刪除">🗑️</button>
       <button class="btn btn-sm btn-ok" onclick="event.stopPropagation();openSettleModal(${o.id})" title="結案">✅ 結案</button>`;
