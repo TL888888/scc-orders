@@ -225,7 +225,7 @@ body{font-family:'Segoe UI','Microsoft JhengHei',Arial,sans-serif;background:var
 
   <!-- FILTER -->
   <div class="filter-bar">
-    <label>ETD 區間</label>
+    <label>ETA 區間</label>
     <input type="date" id="f-from" onchange="loadOrders()">
     <span class="filter-sep">—</span>
     <input type="date" id="f-to" onchange="loadOrders()">
@@ -351,17 +351,27 @@ g('pw').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 async function loadOrders(){
   const from=g('f-from').value,to=g('f-to').value,po=g('f-po').value.trim();
 
-  // 1. Load orders with filters (ETD-based)
+  // 1. If ETA date filter set, find matching order_ids via shipments.eta first
+  let filterIds=null;
+  if(from||to){
+    let sq=db.from('shipments').select('order_id');
+    if(from) sq=sq.gte('eta',from);
+    if(to) sq=sq.lte('eta',to);
+    const {data:matchShips}=await sq;
+    if(!matchShips||!matchShips.length){allOrders=[];renderDash();renderTable();return;}
+    filterIds=[...new Set(matchShips.map(s=>s.order_id))];
+  }
+
+  // 2. Load orders
   let q=db.from('orders')
     .select('id,po_number,order_date,etd,order_qty,unit_price,amount_usd,stage,kts_payment_date,kts_payment_amount_usd,tl_payment_date,created_at,updated_at')
     .order('created_at',{ascending:false});
-  if(from) q=q.gte('etd',from);
-  if(to) q=q.lte('etd',to);
+  if(filterIds) q=q.in('id',filterIds);
   if(po) q=q.ilike('po_number',`%${po}%`);
   const {data:orders,error:oe}=await q;
   if(oe){toast('載入失敗：'+oe.message,'err');return;}
 
-  // 2. Load all shipments for these orders
+  // 3. Load all shipments for these orders
   const ids=(orders||[]).map(o=>o.id);
   let ships=[];
   if(ids.length){
@@ -371,7 +381,7 @@ async function loadOrders(){
     ships=s||[];
   }
 
-  // 3. Aggregate per order in JS
+  // 4. Aggregate per order in JS
   allOrders=(orders||[]).map(o=>{
     const myShips=ships.filter(s=>s.order_id===o.id);
     const latestEta=myShips.reduce((max,s)=>(!max||(s.eta&&s.eta>max))?s.eta:max,null);
@@ -379,7 +389,7 @@ async function loadOrders(){
     const unshipped=Math.max(0,(o.order_qty||0)-totalShipped);
     const customsFeeSum=myShips.reduce((sum,s)=>sum+(s.customs_fee||0),0);
     const tradeFeeSum=myShips.reduce((sum,s)=>sum+(s.trade_promotion_fee||0),0);
-    const shipAmtSum=totalShipped*(o.unit_price||0);
+    const shipAmtSum=myShips.reduce((sum,s)=>sum+(parseFloat(s.actual_amount_usd)||0),0);
     const commission=shipAmtSum*30*0.03;
     return {...o,shipments:myShips,latest_eta:latestEta,
       total_shipped:totalShipped,unshipped,
