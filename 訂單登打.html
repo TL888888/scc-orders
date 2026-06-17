@@ -80,6 +80,17 @@ body{font-family:'Segoe UI','Microsoft JhengHei',Arial,sans-serif;background:var
 .dz-text strong{color:var(--pri)}
 .dz-fn{margin-top:12px;font-size:.9rem;color:var(--ok);font-weight:700;display:none;pointer-events:none}
 
+/* QUEUE BAR */
+#queue-bar{background:linear-gradient(135deg,#1e40af,#2563eb);color:#fff;border-radius:12px;
+  padding:14px 18px;margin-bottom:16px;display:none;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+#queue-info{font-weight:700;font-size:.9rem;flex:1;min-width:0;line-height:1.4}
+.queue-btns{display:flex;gap:8px;flex-shrink:0}
+.btn-q{padding:6px 14px;border-radius:8px;font-size:.8rem;font-weight:700;cursor:pointer;font-family:inherit;border:1px solid rgba(255,255,255,.4);transition:background .2s}
+.btn-q-skip{background:rgba(255,255,255,.18);color:#fff}
+.btn-q-skip:hover{background:rgba(255,255,255,.32)}
+.btn-q-clear{background:rgba(220,38,38,.3);color:#fff;border-color:rgba(220,38,38,.5)}
+.btn-q-clear:hover{background:rgba(220,38,38,.52)}
+
 /* FORM */
 .fg{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .fg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
@@ -273,10 +284,17 @@ tr[style*="opacity:.65"]:hover td{background:transparent!important}
             <button class="btn btn-gh btn-sm" onclick="clearS1()">清除</button>
           </div>
         </div>
+        <div id="queue-bar">
+          <span id="queue-info"></span>
+          <div class="queue-btns">
+            <button class="btn-q btn-q-skip" onclick="skipQueueItem()">⏭ 跳過此筆</button>
+            <button class="btn-q btn-q-clear" onclick="clearQueue()">✕ 清空佇列</button>
+          </div>
+        </div>
         <div class="dz" id="dz1">
-          <input type="file" accept=".pdf" id="fi1">
+          <input type="file" accept=".pdf" multiple id="fi1">
           <div class="dz-icon">📑</div>
-          <div class="dz-text">拖曳訂單 PDF 到此處，或 <strong>點擊選擇檔案</strong><br>系統將自動擷取訂單資料</div>
+          <div class="dz-text">拖曳訂單 PDF 到此處（<strong>可一次選取多個檔案</strong>），或 <strong>點擊選擇檔案</strong><br>系統將依序自動擷取訂單資料</div>
           <div class="dz-fn" id="fn1"></div>
         </div>
         <div class="fg">
@@ -510,6 +528,7 @@ let s1Orders=[],s1Filter='all',s1EditingId=null,s1DetailId=null;
 let s2SelectedOrder=null;
 let s3SelectedShipment=null;
 let s4Mode='quick',s4List=[],s4SelItem=null;
+let fileQueue=[],queueCurrent=0,queueTotal=0;
 
 // ── AUTH ──
 function doLogin(){
@@ -621,11 +640,70 @@ function parseShipping(txt){
 }
 
 // ── DROP ZONES ──
-function setupDZ(id,handler){
+function setupDZ(id,handler,multi=false){
   const z=g(id);
   z.addEventListener('dragover',e=>{e.preventDefault();z.classList.add('drag-over');});
   z.addEventListener('dragleave',()=>z.classList.remove('drag-over'));
-  z.addEventListener('drop',e=>{e.preventDefault();z.classList.remove('drag-over');if(e.dataTransfer.files[0])handler(e.dataTransfer.files[0]);});
+  z.addEventListener('drop',e=>{
+    e.preventDefault();z.classList.remove('drag-over');
+    if(multi){if(e.dataTransfer.files.length)handler(e.dataTransfer.files);}
+    else{if(e.dataTransfer.files[0])handler(e.dataTransfer.files[0]);}
+  });
+}
+
+// ── FILE QUEUE (Stage 1 only) ──
+function startQueue(files){
+  const pdfs=Array.from(files).filter(f=>f.type==='application/pdf');
+  if(!pdfs.length){toast('請選擇 PDF 檔案','err');return;}
+  if(pdfs.length===1){
+    fileQueue=[];queueCurrent=0;queueTotal=0;
+    renderQueueBar();
+    handleFile1(pdfs[0]);
+    return;
+  }
+  if(fileQueue.length>0&&!confirm(`目前批次佇列仍有 ${fileQueue.length-queueCurrent} 筆未處理，確定以新選取的 ${pdfs.length} 個檔案取代？`)) return;
+  fileQueue=pdfs;queueTotal=pdfs.length;queueCurrent=0;
+  clearS1();renderQueueBar();
+  handleFile1(fileQueue[0]);
+}
+function renderQueueBar(){
+  const bar=g('queue-bar');
+  if(!fileQueue.length){bar.style.display='none';return;}
+  const file=fileQueue[queueCurrent];
+  g('queue-info').textContent=`📋 批次處理中：第 ${queueCurrent+1} / ${fileQueue.length} 筆 — ${file?file.name:''}`;
+  bar.style.display='flex';
+}
+function advanceQueue(savedPO){
+  queueCurrent++;
+  if(queueCurrent>=fileQueue.length){
+    finishQueue();
+  } else {
+    const nextFile=fileQueue[queueCurrent];
+    if(savedPO) toast(`已儲存 ${savedPO}，繼續處理第 ${queueCurrent+1} 筆：${nextFile.name}`,'info');
+    renderQueueBar();clearS1();
+    handleFile1(nextFile);
+  }
+}
+function finishQueue(){
+  const total=queueTotal;
+  fileQueue=[];queueCurrent=0;queueTotal=0;
+  clearS1();renderQueueBar();
+  toast(`✅ 全部 ${total} 筆已處理完成`,'ok');
+  g('ss1').textContent=`批次完成：${new Date().toLocaleString('zh-TW')}`;
+  loadS1Data();
+}
+function skipQueueItem(){
+  if(!fileQueue.length) return;
+  const skipped=fileQueue[queueCurrent].name;
+  toast(`已跳過：${skipped}`,'info');
+  queueCurrent++;
+  if(queueCurrent>=fileQueue.length){finishQueue();}
+  else{clearS1();renderQueueBar();handleFile1(fileQueue[queueCurrent]);}
+}
+function clearQueue(){
+  fileQueue=[];queueCurrent=0;queueTotal=0;
+  clearS1();renderQueueBar();
+  toast('已清空批次佇列','info');
 }
 
 // ── SEARCH (stage 2) ──
@@ -705,6 +783,7 @@ async function saveS1(){
       g('ss1').textContent=`儲存時間：${new Date().toLocaleString('zh-TW')}`;
       s1EditingId=null;g('bs1').textContent='💾 儲存訂單';
       await loadS1Data();
+      if(fileQueue.length>0) advanceQueue(po);
     }catch(e){toast('儲存失敗：'+e.message,'err');}
     finally{setBtnLoad('bs1',false,'💾 儲存訂單');}
     return;
@@ -726,13 +805,16 @@ async function saveS1(){
       toast(`PO ${po} 建立成功`,'ok');
       g('ss1').textContent=`儲存時間：${new Date().toLocaleString('zh-TW')}`;
       await loadS1Data();
+      if(fileQueue.length>0) advanceQueue(po);
     }catch(e){toast('儲存失敗：'+e.message,'err');}
     finally{setBtnLoad('bs1',false,'💾 儲存訂單');}
   } else if(matchEx.stage===4){
     alert(`此PO（${matchEx.po_number}）已結清，無法重複建立。`);
     clearS1();
+    if(fileQueue.length>0) advanceQueue(null);
   } else {
-    if(confirm(`此PO已存在（狀態：${SL[matchEx.stage]||'未知'}），是否要更新這筆訂單的資料？`)){
+    const doUpdate=confirm(`此PO已存在（狀態：${SL[matchEx.stage]||'未知'}），是否要更新這筆訂單的資料？`);
+    if(doUpdate){
       setBtnLoad('bs1',true,'儲存中...');
       try{
         const {error}=await db.from('orders').update({...buildS1Payload(po),stage:Math.max(matchEx.stage||1,1),updated_at:now()}).eq('id',matchEx.id);
@@ -743,6 +825,7 @@ async function saveS1(){
       }catch(e){toast('儲存失敗：'+e.message,'err');}
       finally{setBtnLoad('bs1',false,'💾 儲存訂單');}
     }
+    if(fileQueue.length>0) advanceQueue(doUpdate?po:null);
   }
 }
 
@@ -1333,9 +1416,9 @@ document.addEventListener('DOMContentLoaded',()=>{
     g('tb-user').textContent=u;
     loadS1Data();loadS2List();
   }
-  setupDZ('dz1',handleFile1);
+  setupDZ('dz1',startQueue,true);
   setupDZ('dz2',handleFile2);
-  g('fi1').addEventListener('change',e=>handleFile1(e.target.files[0]));
+  g('fi1').addEventListener('change',e=>{if(e.target.files.length)startQueue(e.target.files);e.target.value='';});
   g('fi2').addEventListener('change',e=>handleFile2(e.target.files[0]));
   const now2=new Date();
   g('s4-month').value=`${now2.getFullYear()}-${String(now2.getMonth()+1).padStart(2,'0')}`;
