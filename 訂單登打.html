@@ -58,7 +58,7 @@ body{font-family:'Segoe UI','Microsoft JhengHei',Arial,sans-serif;background:var
   background:var(--pri);border-radius:3px 3px 0 0}
 
 /* CONTENT */
-.content{padding:28px;max-width:900px;margin:0 auto}
+.content{padding:28px;max-width:1400px;margin:0 auto}
 .stage-panel{display:none}
 .stage-panel.active{display:block}
 
@@ -1097,10 +1097,10 @@ function buildShipRow(s,settled,orderId){
     <td>${fmtDate(s.eta)}</td>
     <td>${s.actual_qty!=null?Number(s.actual_qty).toLocaleString('zh-TW'):'—'}</td>
     <td>$${fmtAmt(s.actual_amount_usd)}</td>
-    <td><span id="sv-cf-${s.id}">${cf}</span><input id="ei-cf-${s.id}" class="cell-inp" type="number" value="${s.customs_fee||0}" step="1" min="0" style="display:none;width:80px"></td>
-    <td><span id="sv-tpf-${s.id}">${tpf}</span><input id="ei-tpf-${s.id}" class="cell-inp" type="number" value="${s.trade_promotion_fee||0}" step="1" min="0" style="display:none;width:80px"></td>
-    <td><span id="sv-kd-${s.id}">${kd}</span><input id="ei-kd-${s.id}" class="cell-inp" type="date" value="${s.kts_payment_date||''}" style="display:none;width:128px"></td>
-    <td><span id="sv-tld-${s.id}">${tld}</span><input id="ei-tld-${s.id}" class="cell-inp" type="date" value="${s.tl_payment_date||''}" style="display:none;width:128px"></td>
+    <td onclick="toggleShipEdit(${s.id},true)" style="cursor:pointer"><span id="sv-cf-${s.id}">${cf}</span><input id="ei-cf-${s.id}" class="cell-inp" type="number" value="${s.customs_fee||0}" step="1" min="0" style="display:none;width:80px" onclick="event.stopPropagation()"></td>
+    <td onclick="toggleShipEdit(${s.id},true)" style="cursor:pointer"><span id="sv-tpf-${s.id}">${tpf}</span><input id="ei-tpf-${s.id}" class="cell-inp" type="number" value="${s.trade_promotion_fee||0}" step="1" min="0" style="display:none;width:80px" onclick="event.stopPropagation()"></td>
+    <td onclick="toggleShipEdit(${s.id},true)" style="cursor:pointer"><span id="sv-kd-${s.id}">${kd}</span><input id="ei-kd-${s.id}" class="cell-inp" type="date" value="${s.kts_payment_date||''}" style="display:none;width:128px" onclick="event.stopPropagation()"></td>
+    <td onclick="toggleShipEdit(${s.id},true)" style="cursor:pointer"><span id="sv-tld-${s.id}">${tld}</span><input id="ei-tld-${s.id}" class="cell-inp" type="date" value="${s.tl_payment_date||''}" style="display:none;width:128px" onclick="event.stopPropagation()"></td>
     <td>
       <div class="act-btns" id="sv-btns-${s.id}">
         <button class="btn btn-sm btn-out" onclick="toggleShipEdit(${s.id},true)" title="編輯">✏️</button>
