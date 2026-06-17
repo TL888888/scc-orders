@@ -659,13 +659,26 @@ function parseShipping(txt){
   if(m) r.shipping_notice_no=m[1].toUpperCase();
   m=txt.match(/(\d{4}\/\d{1,2}\/\d{1,2})/);
   if(m) r.eta=pdate(m[1]);
-  const poBlocks=[...txt.matchAll(/(\d{7})[^\n]*\nLine No:\s*(\d+)/gi)];
-  const qtyMatches=[...txt.matchAll(/([\d,]+)\s+PCS/gi)];
-  r.items=poBlocks.map((pb,i)=>({
-    po_number:pb[1],
-    line_no:parseInt(pb[2]),
-    qty:i<qtyMatches.length?pnum(qtyMatches[i][1]):null
-  }));
+  // Count PO+LineNo blocks — space-tolerant so it works with PDF.js join(' ') output
+  const blocks=[...txt.matchAll(/(\d{7})\s+Line\s+No[.:]?\s*(\d+)/gi)];
+  if(blocks.length===0){
+    r.items=[];
+  } else if(blocks.length===1){
+    // Single PO: original robust logic — locate qty independently
+    const po_number=blocks[0][1];
+    const line_no=parseInt(blocks[0][2]);
+    const qm=txt.match(/([\d,]+)\s+PCS/i)||txt.match(/([\d,]+)\s+Units/i);
+    const qty=qm?pnum(qm[1]):null;
+    r.items=[{po_number,line_no,qty}];
+  } else {
+    // Multi PO: pair each block's (po_number, line_no) with PCS qty by position
+    const qtyMatches=[...txt.matchAll(/([\d,]+)\s+PCS/gi)];
+    r.items=blocks.map((b,i)=>({
+      po_number:b[1],
+      line_no:parseInt(b[2]),
+      qty:i<qtyMatches.length?pnum(qtyMatches[i][1]):null
+    }));
+  }
   return r;
 }
 
