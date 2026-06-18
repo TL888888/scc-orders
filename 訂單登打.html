@@ -553,9 +553,9 @@ const SKEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI
 const db=supabase.createClient(SURL,SKEY);
 pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-const USERS={'Tl3167':'tl888$$$','entry':'entry123'};
+const USERS={'Tl3167':'tl888$$$','entry':'entry123','scc_view':'tl888'};
 const SL=['','已建立','已出貨','已進口','已結清'];
-let CU=null;
+let CU=null,currentRole='admin';
 const S1_PAGE_SIZE=20;
 let s1Orders=[],s1Filter='all',s1MonthFilter='',s1Page=1,s1EditingId=null,s1DetailId=null;
 let s2ShipItems=[];
@@ -568,15 +568,36 @@ let s1ParsedItems=[];
 function doLogin(){
   const u=g('un').value.trim(),p=g('pw').value;
   if(USERS[u]&&USERS[u]===p){
-    CU=u;sessionStorage.setItem('u',u);
+    CU=u;currentRole=(u==='scc_view')?'viewer':'admin';
+    sessionStorage.setItem('u',u);sessionStorage.setItem('role',currentRole);
     g('login-screen').style.display='none';
     g('app-screen').style.display='block';
-    g('tb-user').textContent=u;
+    g('tb-user').textContent=u+(currentRole==='viewer'?' 〔唯讀〕':'');
     g('login-err').style.display='none';
+    if(currentRole==='viewer') applyViewerRestrictions();
     loadS1Data();loadS2List();
   } else { g('login-err').style.display='block'; }
 }
-function doLogout(){sessionStorage.removeItem('u');location.reload();}
+function doLogout(){sessionStorage.removeItem('u');sessionStorage.removeItem('role');location.reload();}
+function applyViewerRestrictions(){
+  ['dz1','dz2'].forEach(id=>{
+    const dz=g(id);if(!dz) return;
+    dz.style.opacity='.45';dz.style.pointerEvents='none';dz.title='唯讀帳號無法操作此功能';
+  });
+  ['fi1','fi2'].forEach(id=>{const el=g(id);if(el) el.disabled=true;});
+  ['f1-po','f1-od','f1-etd','f1-qty','f1-up','f1-amt'].forEach(id=>{
+    const el=g(id);if(el){el.disabled=true;el.title='唯讀帳號無法操作此功能';}
+  });
+  const bs1=g('bs1');if(bs1){bs1.disabled=true;bs1.title='唯讀帳號無法操作此功能';}
+  ['f2-sn','f2-eta'].forEach(id=>{const el=g(id);if(el){el.disabled=true;el.title='唯讀帳號無法操作此功能';}});
+  const bs2=g('bs2');if(bs2){bs2.disabled=true;bs2.title='唯讀帳號無法操作此功能';}
+  ['f3-cf','f3-tpf'].forEach(id=>{const el=g(id);if(el){el.disabled=true;el.title='唯讀帳號無法操作此功能';}});
+  const bs3=g('bs3');if(bs3){bs3.disabled=true;bs3.title='唯讀帳號無法操作此功能';}
+  document.querySelectorAll('#p4 button').forEach(btn=>{
+    const oc=btn.getAttribute('onclick')||'';
+    if(oc.includes('enableS4Edit')){btn.disabled=true;btn.title='唯讀帳號無法操作此功能';}
+  });
+}
 g('pw').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 
 // ── HELPERS ──
@@ -704,6 +725,7 @@ function setupDZ(id,handler,multi=false){
 
 // ── FILE QUEUE (Stage 1 only) ──
 function startQueue(files){
+  if(currentRole!=='admin'){toast('唯讀帳號無法操作此功能','err');return;}
   const pdfs=Array.from(files).filter(f=>f.type==='application/pdf');
   if(!pdfs.length){toast('請選擇 PDF 檔案','err');return;}
   if(pdfs.length===1){
@@ -865,6 +887,7 @@ async function saveOrderItems(orderId){
   })));
 }
 async function saveS1(){
+  if(currentRole!=='admin'){alert('唯讀帳號無法操作此功能');return;}
   const po=g('f1-po').value.trim();
   if(!po){toast('請填寫 PO 號碼','err');return;}
   if(s1EditingId){
@@ -980,6 +1003,7 @@ function clearS1MonthFilter(){
   renderS1List();
 }
 async function unsettle(orderId,po){
+  if(currentRole!=='admin'){alert('唯讀帳號無法操作此功能');return;}
   if(!confirm(`確定要解除此訂單（PO ${po}）的結清狀態嗎？\n解除後訂單將回到「已進口」狀態，所有出貨記錄與付款資料維持原樣不變。`)) return;
   try{
     const {error}=await db.from('orders').update({stage:3,updated_at:now()}).eq('id',orderId);
@@ -1015,13 +1039,15 @@ function renderS1List(){
     const etaList=[...new Set((o.shipments||[]).filter(s=>s.eta).map(s=>s.eta))].sort();
     const etaDisp=etaList.length?etaList.map(fmtDate).join('<br>'):'—';
     const poEsc=(o.po_number||'').replace(/'/g,"\\'");
+    const isViewer=currentRole!=='admin';
+    const vd=isViewer?'disabled title="唯讀帳號無法操作此功能"':'';
     const actBtns=settled?
       `<button class="btn btn-sm" style="visibility:hidden;pointer-events:none" aria-hidden="true">✏️</button>
       <button class="btn btn-sm" style="visibility:hidden;pointer-events:none" aria-hidden="true">🗑️</button>
-      <button class="btn btn-danger" onclick="event.stopPropagation();unsettle(${o.id},'${poEsc}')" title="解除結案" style="padding:3px 8px;font-size:.75rem;border-radius:6px;border:1.5px solid var(--err);cursor:pointer;background:#fff;color:var(--err)">⛔ 解除</button>`:
-      `<button class="btn btn-sm btn-out" onclick="event.stopPropagation();loadOrderToS1(${o.id})" title="編輯">✏️</button>
-      <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deleteOrder(${o.id},'${poEsc}')" title="刪除">🗑️</button>
-      <button class="btn btn-sm btn-ok" onclick="event.stopPropagation();openSettleModal(${o.id})" title="結案">✅ 結案</button>`;
+      <button class="btn btn-danger" ${vd} onclick="event.stopPropagation();unsettle(${o.id},'${poEsc}')" title="${isViewer?'唯讀帳號無法操作此功能':'解除結案'}" style="padding:3px 8px;font-size:.75rem;border-radius:6px;border:1.5px solid var(--err);cursor:${isViewer?'not-allowed':'pointer'};background:#fff;color:var(--err)">⛔ 解除</button>`:
+      `<button class="btn btn-sm btn-out" ${vd} onclick="event.stopPropagation();loadOrderToS1(${o.id})" title="${isViewer?'唯讀帳號無法操作此功能':'編輯'}">✏️</button>
+      <button class="btn btn-sm btn-danger" ${vd} onclick="event.stopPropagation();deleteOrder(${o.id},'${poEsc}')" title="${isViewer?'唯讀帳號無法操作此功能':'刪除'}">🗑️</button>
+      <button class="btn btn-sm btn-ok" ${vd} onclick="event.stopPropagation();openSettleModal(${o.id})" title="${isViewer?'唯讀帳號無法操作此功能':'結案'}">✅ 結案</button>`;
     const rowStyle=settled?'style="opacity:.65"':'';
     return`<tr ${rowStyle} onclick="showS1Detail(${o.id})">
       <td>${fmtDate(o.order_date)}</td>
@@ -1064,6 +1090,7 @@ async function loadOrderToS1(id){
 }
 
 async function deleteOrder(id,po){
+  if(currentRole!=='admin'){alert('唯讀帳號無法操作此功能');return;}
   if(!confirm(`確定要刪除訂單「${po}」？相關出貨記錄也會一併刪除，此操作無法復原。`)) return;
   try{
     await db.from('shipments').delete().eq('order_id',id);
@@ -1076,6 +1103,7 @@ async function deleteOrder(id,po){
 }
 
 function openSettleModal(id){
+  if(currentRole!=='admin'){alert('唯讀帳號無法操作此功能');return;}
   const o=s1Orders.find(x=>x.id===id);
   if(!o) return;
   const ships=o.shipments||[];
@@ -1130,7 +1158,7 @@ function renderDetailCard(id){
   }
   const settleHtml=settled?
     `<div class="settle-bar"><span style="font-size:.9rem;color:var(--mu)">狀態：<strong style="color:#6d28d9">已結清</strong></span></div>`:
-    `<div class="settle-bar"><span style="font-size:.9rem;color:var(--mu)">狀態：<strong style="color:var(--tx)">未結清</strong></span><button class="btn btn-ok btn-sm" onclick="openSettleModal(${o.id})">✅ 結案</button></div>`;
+    `<div class="settle-bar"><span style="font-size:.9rem;color:var(--mu)">狀態：<strong style="color:var(--tx)">未結清</strong></span><button class="btn btn-ok btn-sm" ${currentRole!=='admin'?'disabled title="唯讀帳號無法操作此功能"':''} onclick="openSettleModal(${o.id})">✅ 結案</button></div>`;
   g('s1-detail-body').innerHTML=infoHtml+shipsHdr+shipsHtml+settleHtml;
   g('s1-detail').style.background=settled?'#f8fafc':'';
   g('s1-detail').style.display='block';
@@ -1144,19 +1172,22 @@ function buildShipRow(s,settled,orderId){
   const tld=fmtDate(s.tl_payment_date);
   if(settled)return`<tr><td>${s.shipping_notice_no||'—'}</td><td>${fmtDate(s.eta)}</td><td>${s.actual_qty!=null?Number(s.actual_qty).toLocaleString('zh-TW'):'—'}</td><td>$${fmtAmt(s.actual_amount_usd)}</td><td>${cf}</td><td>${tpf}</td><td>${kd}</td><td>${tld}</td></tr>`;
   const snEsc=(s.shipping_notice_no||'').replace(/'/g,"\\'");
+  const isViewer=currentRole!=='admin';
+  const cellAttr=isViewer?'':'onclick="toggleShipEdit('+s.id+',true)" style="cursor:pointer"';
+  const vd=isViewer?'disabled title="唯讀帳號無法操作此功能"':'';
   return`<tr id="sr-${s.id}">
     <td>${s.shipping_notice_no||'—'}</td>
     <td>${fmtDate(s.eta)}</td>
     <td>${s.actual_qty!=null?Number(s.actual_qty).toLocaleString('zh-TW'):'—'}</td>
     <td>$${fmtAmt(s.actual_amount_usd)}</td>
-    <td onclick="toggleShipEdit(${s.id},true)" style="cursor:pointer"><span id="sv-cf-${s.id}">${cf}</span><input id="ei-cf-${s.id}" class="cell-inp" type="number" value="${s.customs_fee||0}" step="1" min="0" style="display:none;width:80px" onclick="event.stopPropagation()"></td>
-    <td onclick="toggleShipEdit(${s.id},true)" style="cursor:pointer"><span id="sv-tpf-${s.id}">${tpf}</span><input id="ei-tpf-${s.id}" class="cell-inp" type="number" value="${s.trade_promotion_fee||0}" step="1" min="0" style="display:none;width:80px" onclick="event.stopPropagation()"></td>
-    <td onclick="toggleShipEdit(${s.id},true)" style="cursor:pointer"><span id="sv-kd-${s.id}">${kd}</span><input id="ei-kd-${s.id}" class="cell-inp" type="date" value="${s.kts_payment_date||''}" style="display:none;width:128px" onclick="event.stopPropagation()"></td>
-    <td onclick="toggleShipEdit(${s.id},true)" style="cursor:pointer"><span id="sv-tld-${s.id}">${tld}</span><input id="ei-tld-${s.id}" class="cell-inp" type="date" value="${s.tl_payment_date||''}" style="display:none;width:128px" onclick="event.stopPropagation()"></td>
+    <td ${cellAttr}><span id="sv-cf-${s.id}">${cf}</span><input id="ei-cf-${s.id}" class="cell-inp" type="number" value="${s.customs_fee||0}" step="1" min="0" style="display:none;width:80px" onclick="event.stopPropagation()"></td>
+    <td ${cellAttr}><span id="sv-tpf-${s.id}">${tpf}</span><input id="ei-tpf-${s.id}" class="cell-inp" type="number" value="${s.trade_promotion_fee||0}" step="1" min="0" style="display:none;width:80px" onclick="event.stopPropagation()"></td>
+    <td ${cellAttr}><span id="sv-kd-${s.id}">${kd}</span><input id="ei-kd-${s.id}" class="cell-inp" type="date" value="${s.kts_payment_date||''}" style="display:none;width:128px" onclick="event.stopPropagation()"></td>
+    <td ${cellAttr}><span id="sv-tld-${s.id}">${tld}</span><input id="ei-tld-${s.id}" class="cell-inp" type="date" value="${s.tl_payment_date||''}" style="display:none;width:128px" onclick="event.stopPropagation()"></td>
     <td>
       <div class="act-btns" id="sv-btns-${s.id}">
-        <button class="btn btn-sm btn-out" onclick="toggleShipEdit(${s.id},true)" title="編輯">✏️</button>
-        <button class="btn btn-sm btn-danger" onclick="deleteShipment(${s.id},${orderId},'${snEsc}')">🗑️</button>
+        <button class="btn btn-sm btn-out" ${vd} onclick="toggleShipEdit(${s.id},true)" title="${isViewer?'唯讀帳號無法操作此功能':'編輯'}">✏️</button>
+        <button class="btn btn-sm btn-danger" ${vd} onclick="deleteShipment(${s.id},${orderId},'${snEsc}')" title="${isViewer?'唯讀帳號無法操作此功能':''}">🗑️</button>
       </div>
       <div style="display:none" id="ed-btns-${s.id}" class="act-btns">
         <button class="btn btn-sm btn-ok" onclick="saveShipEdit(${s.id},${orderId})">💾</button>
@@ -1178,6 +1209,7 @@ function toggleShipEdit(sid,editing){
 }
 
 async function saveShipEdit(sid,orderId){
+  if(currentRole!=='admin'){alert('唯讀帳號無法操作此功能');return;}
   const cf=parseInt(g(`ei-cf-${sid}`)?.value)||0;
   const tpf=parseInt(g(`ei-tpf-${sid}`)?.value)||0;
   const kd=g(`ei-kd-${sid}`)?.value||null;
@@ -1197,6 +1229,7 @@ async function saveShipEdit(sid,orderId){
 }
 
 async function deleteShipment(sid,orderId,sn){
+  if(currentRole!=='admin'){alert('唯讀帳號無法操作此功能');return;}
   if(!confirm(`確定要刪除送貨單「${sn||sid}」？此操作無法復原。`)) return;
   try{
     const {error}=await db.from('shipments').delete().eq('id',sid);
@@ -1233,6 +1266,7 @@ function renderS2Items(){
   }).join('');
 }
 async function handleFile2(file){
+  if(currentRole!=='admin'){toast('唯讀帳號無法操作此功能','err');return;}
   if(!file||file.type!=='application/pdf'){toast('請選擇 PDF 檔案','err');return;}
   g('fn2').style.display='block';g('fn2').textContent='⏳ 解析中...';
   try{
@@ -1275,6 +1309,7 @@ async function handleFile2(file){
   }catch(e){g('fn2').textContent='❌ 解析失敗';toast('PDF解析失敗：'+e.message,'err');}
 }
 async function saveS2(){
+  if(currentRole!=='admin'){alert('唯讀帳號無法操作此功能');return;}
   const sn=g('f2-sn').value.trim();
   const eta=g('f2-eta').value;
   const readyItems=s2ShipItems.filter(it=>it.status==='ready');
@@ -1381,6 +1416,7 @@ function clearS3(){
   g('sr3').value='';g('dd3').style.display='none';
 }
 async function saveS3(){
+  if(currentRole!=='admin'){alert('唯讀帳號無法操作此功能');return;}
   if(!s3SelectedShipment){toast('請先選擇出貨記錄','err');return;}
   setBtnLoad('bs3',true,'儲存中...');
   const cf=parseInt(g('f3-cf').value)||0;
@@ -1502,6 +1538,7 @@ function clearS4Sel(){
   if(g('s4-tl-save')) g('s4-tl-save').style.display='none';
 }
 function enableS4Edit(inputId,saveId){
+  if(currentRole!=='admin'){alert('唯讀帳號無法操作此功能');return;}
   g(inputId).readOnly=false;
   g(inputId).focus();
   g(saveId).style.display='';
@@ -1514,6 +1551,7 @@ function cancelS4Edit(inputId,saveId){
   g(saveId).style.display='none';
 }
 async function saveKTS(){
+  if(currentRole!=='admin'){alert('唯讀帳號無法操作此功能');return;}
   if(!s4SelItem){toast('請先選擇記錄','err');return;}
   setBtnLoad('bs4-kts',true,'儲存中...');
   const kd=g('f4-kd').value||null;
@@ -1529,6 +1567,7 @@ async function saveKTS(){
   finally{setBtnLoad('bs4-kts',false,'💾 儲存KTS入帳日期');}
 }
 async function saveTL(){
+  if(currentRole!=='admin'){alert('唯讀帳號無法操作此功能');return;}
   if(!s4SelItem){toast('請先選擇記錄','err');return;}
   setBtnLoad('bs4-tl',true,'儲存中...');
   const tld=g('f4-tld').value||null;
@@ -1556,9 +1595,11 @@ document.addEventListener('DOMContentLoaded',()=>{
   const u=sessionStorage.getItem('u');
   if(u&&USERS[u]){
     CU=u;
+    currentRole=sessionStorage.getItem('role')||((u==='scc_view')?'viewer':'admin');
     g('login-screen').style.display='none';
     g('app-screen').style.display='block';
-    g('tb-user').textContent=u;
+    g('tb-user').textContent=u+(currentRole==='viewer'?' 〔唯讀〕':'');
+    if(currentRole==='viewer') applyViewerRestrictions();
     loadS1Data();loadS2List();
   }
   setupDZ('dz1',startQueue,true);
