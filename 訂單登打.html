@@ -250,6 +250,38 @@ tr[style*="opacity:.65"]:hover td{background:transparent!important}
 </style>
 </head>
 <body>
+<!-- 維護公告 START -->
+<div id="maintenance-modal" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:1rem;">
+  <div style="background:#fff;border-radius:16px;padding:32px;max-width:480px;width:100%;box-shadow:0 24px 60px rgba(0,0,0,.3);">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+      <div style="background:#fef3c7;border-radius:50%;width:44px;height:44px;display:flex;align-items:center;justify-content:center;">
+        <span style="font-size:22px;">🔧</span>
+      </div>
+      <div>
+        <p style="font-size:16px;font-weight:700;margin:0;">系統維護公告</p>
+        <p style="font-size:13px;color:#64748b;margin:0;">請詳閱以下說明</p>
+      </div>
+    </div>
+    <div style="border-top:1px solid #e2e8f0;padding-top:20px;margin-bottom:24px;">
+      <p style="font-size:14px;line-height:1.8;margin:0;color:#1e293b;">
+        敬愛的用戶您好，<br><br>
+        本系統預計於 <strong style="color:#d97706;">2026年6月27日 00:00</strong> 至 <strong style="color:#d97706;">2026年6月28日 24:00</strong> 進行系統維護作業。<br><br>
+        維護期間將暫時關閉系統資料庫儲存作業，<strong>請勿於此段時間登打或拋轉資料</strong>，造成不便敬請見諒。<br><br>
+        感謝您的配合。
+      </p>
+    </div>
+    <button onclick="document.getElementById('maintenance-modal').style.display='none'" style="width:100%;padding:12px;background:#1e40af;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;">
+      我已閱讀，確認進入系統
+    </button>
+  </div>
+</div>
+<script>
+  if(new Date() > new Date('2026-06-29T00:00:00')){
+    document.getElementById('maintenance-modal').style.display='none';
+  }
+</script>
+<!-- 維護公告 END -->
+
 
 <!-- LOGIN -->
 <div id="login-screen">
