@@ -556,7 +556,7 @@ async function loadOrders(){
   // 1. If ETA date filter set, find matching order_ids via shipments.eta first
   let filterIds=null;
   if(from||to){
-    let sq=db.from('shipments').select('order_id');
+    let sq=db.from('shipments').select('order_id').gt('actual_qty',0);
     if(from) sq=sq.gte('eta',from);
     if(to) sq=sq.lte('eta',to);
     const {data:matchShips}=await sq;
@@ -586,17 +586,20 @@ async function loadOrders(){
   // 4. Aggregate per order in JS
   allOrders=(orders||[]).map(o=>{
     const myShips=ships.filter(s=>s.order_id===o.id);
-    const latestEta=myShips.reduce((max,s)=>(!max||(s.eta&&s.eta>max))?s.eta:max,null);
+    const latestEta=myShips.filter(s=>s.actual_qty>0).reduce((max,s)=>(!max||(s.eta&&s.eta>max))?s.eta:max,null);
     const totalShipped=myShips.reduce((sum,s)=>sum+(s.actual_qty||0),0);
     const unshipped=Math.max(0,(o.order_qty||0)-totalShipped);
     const customsFeeSum=myShips.reduce((sum,s)=>sum+(s.customs_fee||0),0);
     const tradeFeeSum=myShips.reduce((sum,s)=>sum+(s.trade_promotion_fee||0),0);
     const shipAmtSum=myShips.reduce((sum,s)=>sum+(parseFloat(s.actual_amount_usd)||0),0);
     const commission=shipAmtSum*30*0.03;
+    const kts_date_latest=myShips.filter(s=>s.actual_qty>0).reduce((max,s)=>(!max||(s.kts_payment_date&&s.kts_payment_date>max))?s.kts_payment_date:max,null);
+    const tl_date_latest=myShips.filter(s=>s.actual_qty>0).reduce((max,s)=>(!max||(s.tl_payment_date&&s.tl_payment_date>max))?s.tl_payment_date:max,null);
     return {...o,shipments:myShips,latest_eta:latestEta,
       total_shipped:totalShipped,unshipped,
       customs_fee_sum:customsFeeSum,trade_fee_sum:tradeFeeSum,
-      ship_amount:shipAmtSum,commission};
+      ship_amount:shipAmtSum,commission,
+      kts_date_latest,tl_date_latest};
   });
   // 依狀態排序(1→4)，同狀態內依建立時間新到舊
   allOrders.sort((a,b)=>a.stage-b.stage||(b.created_at>a.created_at?1:-1));
@@ -611,7 +614,7 @@ function clearFilter(){
 // ── DASHBOARD ──
 function renderDash(){
   const total=allOrders.length;
-  const imported=allOrders.filter(o=>o.total_shipped>0||o.latest_eta).length;
+  const imported=allOrders.filter(o=>o.stage===3).length;
   const amt=allOrders.reduce((s,o)=>s+(+o.amount_usd||0),0);
   const iamt=allOrders.reduce((s,o)=>s+(+o.ship_amount||0),0);
   const comm=allOrders.reduce((s,o)=>s+(+o.commission||0),0);
@@ -649,8 +652,8 @@ function renderTable(){
       <td>${o.customs_fee_sum>0?fmtNI(o.customs_fee_sum):'—'}</td>
       <td>${o.trade_fee_sum>0?fmtNI(o.trade_fee_sum):'—'}</td>
       <td>${o.commission>0?fmtNI(o.commission):'—'}</td>
-      <td>${fmtD(o.kts_payment_date)}</td>
-      <td>${fmtD(o.tl_payment_date)}</td>
+      <td>${fmtD(o.kts_date_latest)}</td>
+      <td>${fmtD(o.tl_date_latest)}</td>
       <td><span class="bdg b${st}">${SL[st]||''}</span></td>
       <td><button class="btn btn-out btn-sm" onclick="openDetail(${o.id})">詳情</button></td>
     </tr>`;
@@ -750,7 +753,7 @@ function exportExcel(){
     o.total_shipped||0,o.unshipped||0,
     o.customs_fee_sum||0,o.trade_fee_sum||0,
     Math.round(o.commission||0),
-    o.kts_payment_date||'',o.tl_payment_date||'',
+    o.kts_date_latest||'',o.tl_date_latest||'',
     smap[o.stage||1]||'',
     o.created_at?new Date(o.created_at).toLocaleString('zh-TW'):''
   ]);

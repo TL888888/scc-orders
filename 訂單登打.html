@@ -560,7 +560,7 @@ function toggleMonkey(){
             <div style="font-size:.73rem;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">出貨品項</div>
             <div style="overflow-x:auto;border:1px solid var(--border);border-radius:10px">
               <table class="items-tbl">
-                <thead><tr><th>訂單編號</th><th>Line</th><th class="r">數量</th><th class="r">單價 (USD)</th><th class="r">金額 (USD)</th><th>狀態</th></tr></thead>
+                <thead><tr><th style="width:36px"></th><th>訂單編號</th><th>Line</th><th class="r">數量</th><th class="r">單價 (USD)</th><th class="r">金額 (USD)</th><th>狀態</th></tr></thead>
                 <tbody id="s2-items-tbody"></tbody>
               </table>
             </div>
@@ -844,7 +844,11 @@ function pdate(s){
   if(m) return `20${m[3]}-${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}`;
   return '';
 }
-function pnum(s){return s?(parseFloat(String(s).replace(/[^0-9.]/g,''))||''):'';}
+function pnum(s){
+  if(s===null||s===undefined||s==='') return '';
+  const n=parseFloat(String(s).replace(/[^0-9.]/g,''));
+  return isNaN(n)?'':n;
+}
 
 // ── PARSE ORDER PDF ──
 function parseOrder(txt){
@@ -1445,21 +1449,34 @@ function clearS2(){
 }
 function renderS2Items(){
   const tbody=g('s2-items-tbody');
-  tbody.innerHTML=s2ShipItems.map(it=>{
+  tbody.innerHTML=s2ShipItems.map((it,idx)=>{
     let st='',stCls='color:var(--mu)';
     if(it.status==='ready'){st='✅ 可儲存';stCls='color:var(--ok);font-weight:700';}
     else if(it.status==='not_found'){st='⚠️ 找不到訂單';stCls='color:#b45309;font-weight:600';}
     else if(it.status==='stage4'){st='⛔ 已結清';stCls='color:var(--err);font-weight:600';}
     else if(it.status==='duplicate'){st='⚠️ 已存在';stCls='color:#b45309;font-weight:600';}
+    const canCheck=it.status==='ready';
+    const cbHtml=canCheck
+      ?`<input type="checkbox" ${it.checked?'checked':''} onclick="toggleS2Item(${idx})" style="width:16px;height:16px;cursor:pointer">`
+      :`<input type="checkbox" disabled style="width:16px;height:16px;opacity:.35">`;
+    const qtyDisp=it.qty!=null?Number(it.qty).toLocaleString('zh-TW'):'—';
+    const qtyCell=canCheck&&it.qty===0
+      ?`<span style="color:#ea580c;font-weight:700">${qtyDisp}</span><br><span style="color:#ea580c;font-size:.73rem">⚠️ 數量為0，請確認是否需要存檔</span>`
+      :qtyDisp;
     return`<tr>
+      <td style="text-align:center;padding:8px 6px">${cbHtml}</td>
       <td><strong>${it.order_po_number||it.po_number}</strong></td>
       <td>Line ${it.line_no}</td>
-      <td class="r">${it.qty!=null?Number(it.qty).toLocaleString('zh-TW'):'—'}</td>
+      <td class="r">${qtyCell}</td>
       <td class="r">${it.unit_price!=null?Number(it.unit_price).toFixed(4):'—'}</td>
       <td class="r">${it.amount!=null?'$'+fmtAmt(it.amount):'—'}</td>
       <td style="${stCls}">${st}</td>
     </tr>`;
   }).join('');
+}
+function toggleS2Item(idx){
+  if(s2ShipItems[idx]) s2ShipItems[idx].checked=!s2ShipItems[idx].checked;
+  renderS2Items();
 }
 async function handleFile2(file){
   if(currentRole!=='admin'){toast('唯讀帳號無法操作此功能','err');return;}
@@ -1494,7 +1511,8 @@ async function handleFile2(file){
       s2ShipItems.push({
         po_number:item.po_number,line_no:item.line_no,qty:item.qty,
         order_id:order?.id,order_po_number:order?.po_number,
-        unit_price,amount,status
+        unit_price,amount,status,
+        checked:status==='ready'
       });
     }
     g('s2-form-wrap').style.display='block';
@@ -1508,8 +1526,8 @@ async function saveS2(){
   if(currentRole!=='admin'){alert('唯讀帳號無法操作此功能');return;}
   const sn=g('f2-sn').value.trim();
   const eta=g('f2-eta').value;
-  const readyItems=s2ShipItems.filter(it=>it.status==='ready');
-  if(!readyItems.length){toast('沒有可儲存的出貨品項','err');return;}
+  const readyItems=s2ShipItems.filter(it=>it.status==='ready'&&it.checked);
+  if(!readyItems.length){toast('沒有可儲存的出貨品項（或已全部取消勾選）','err');return;}
   setBtnLoad('bs2',true,'儲存中...');
   try{
     for(const it of readyItems){
@@ -1524,9 +1542,11 @@ async function saveS2(){
         trade_promotion_fee:0
       }]);
       if(error) throw error;
-      const {data:ord}=await db.from('orders').select('stage').eq('id',it.order_id).single();
-      const newStage=Math.max(ord?.stage||1,2);
-      await db.from('orders').update({stage:newStage,updated_at:now()}).eq('id',it.order_id);
+      if(it.qty>0){
+        const {data:ord}=await db.from('orders').select('stage').eq('id',it.order_id).single();
+        const newStage=Math.max(ord?.stage||1,2);
+        await db.from('orders').update({stage:newStage,updated_at:now()}).eq('id',it.order_id);
+      }
     }
     toast(`成功儲存 ${readyItems.length} 筆出貨記錄`,'ok');
     g('ss2').textContent=`儲存時間：${new Date().toLocaleString('zh-TW')}`;
@@ -1574,7 +1594,8 @@ async function runSearch3(){
   const {data:ships,error:sErr}=await db.from('shipments')
     .select('id,order_id,shipping_notice_no,eta,customs_fee')
     .in('order_id',ords.map(o=>o.id))
-    .or('customs_fee.is.null,customs_fee.eq.0');
+    .or('customs_fee.is.null,customs_fee.eq.0')
+    .gt('actual_qty',0);
   if(sErr){dd.innerHTML='<div style="padding:16px;color:var(--mu);text-align:center">查詢失敗</div>';dd.style.display='block';return;}
   if(!ships?.length){
     dd.innerHTML='<div style="padding:16px;color:var(--mu);text-align:center;font-size:.875rem">找不到未填報關費的出貨記錄</div>';
@@ -1671,7 +1692,7 @@ async function loadS4(){
   const po=g('s4-po').value.trim();
   let q=db.from('shipments')
     .select('id,shipping_notice_no,eta,actual_qty,actual_amount_usd,kts_payment_date,tl_payment_date,order_id,orders(id,po_number,stage,unit_price)')
-    .gte('eta',fromDate).lte('eta',toDate);
+    .gte('eta',fromDate).lte('eta',toDate).gt('actual_qty',0);
   const {data,error}=await q;
   if(error){toast('查詢失敗：'+error.message,'err');return;}
   let list=(data||[]).filter(s=>{
